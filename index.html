@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no, maximum-scale=1">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Own Your Finance">
+  <meta name="theme-color" content="#FAFAFA">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <title>Own Your Finance</title>
+  <style>body{margin:0;background:#FAFAFA}#root{height:100dvh}</style>
+</head>
+<body>
+<div id="root"></div>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/recharts@2.12.7/umd/Recharts.min.js"></script>
+<script>
+window.onerror = function(msg, url, line, col, err) {
+  document.getElementById('root').innerHTML = '<pre style="color:red;padding:20px;font-size:12px;word-wrap:break-word">' +
+    'Error: ' + msg + '\nLine: ' + line + '\nCol: ' + col + 
+    (err && err.stack ? '\n\nStack:\n' + err.stack.substring(0, 500) : '') + '</pre>';
+  return false;
+};
+</script>
+<script>
+(() => {
+  const { useState, useEffect, useCallback, useMemo, useRef, createElement: h } = React;
+  const { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } = Recharts;
+  const RATES = { EUR: 1, USD: 1.08, GBP: 0.86, RUB: 99.5, CHF: 0.97, TRY: 34.8, UAH: 41.2, KZT: 498, GEL: 2.87 };
+  function convert(amount, from, to) {
+    if (from === to) return amount;
+    const inEur = amount / (RATES[from] || 1);
+    return inEur * (RATES[to] || 1);
+  }
+  const THEMES = [
+    {
+      id: "classic",
+      name: "Classic",
+      ru: "\u041A\u043B\u0430\u0441\u0441\u0438\u043A\u0430",
+      emoji: "\u26AA",
+      desc: "Apple minimalism",
+      dru: "\u041C\u0438\u043D\u0438\u043C\u0430\u043B\u0438\u0437\u043C Apple",
+      uiClass: "ui-classic",
+      // default rounded cards, standard layout
+      vars: { "--bg": "#FAFAFA", "--bg2": "#F2F2F7", "--card": "#FFFFFF", "--cbrd": "transparent", "--text": "#1C1C1E", "--t2": "#8E8E93", "--t3": "#C7C7CC", "--brd": "#E5E5EA", "--acc": "#007AFF", "--accR": "0,122,255", "--accB": "rgba(0,122,255,0.08)", "--red": "#FF3B30", "--redB": "rgba(255,59,48,0.08)", "--grn": "#34C759", "--grnB": "rgba(52,199,89,0.08)", "--org": "#FF9500", "--shd": "0 1px 3px rgba(0,0,0,0.06)", "--rad": "14px", "--rads": "10px", "--blur": "0", "--tbg": "rgba(255,255,255,0.92)", "--sbg": "#FFFFFF", "--hdfont": "'DM Sans'", "--hdsz": "28px", "--hdw": "800", "--cardpad": "16px", "--fabrad": "50%" },
+      bg: null
+    },
+    {
+      id: "sakura",
+      name: "Sakura",
+      ru: "\u0421\u0430\u043A\u0443\u0440\u0430",
+      emoji: "\u{1F338}",
+      desc: "Japanese Uniqlo style",
+      dru: "\u042F\u043F\u043E\u043D\u0441\u043A\u0438\u0439 \u0441\u0442\u0438\u043B\u044C Uniqlo",
+      uiClass: "ui-sakura",
+      vars: { "--bg": "#FAF6F1", "--bg2": "#F0E8E0", "--card": "rgba(255,253,250,0.88)", "--cbrd": "rgba(193,30,58,0.06)", "--text": "#1A0A0A", "--t2": "#8C6B6B", "--t3": "#C4A8A8", "--brd": "rgba(193,30,58,0.08)", "--acc": "#C41E3A", "--accR": "196,30,58", "--accB": "rgba(193,30,58,0.06)", "--red": "#C41E3A", "--redB": "rgba(193,30,58,0.06)", "--grn": "#2D8659", "--grnB": "rgba(45,134,89,0.08)", "--org": "#D4824A", "--shd": "none", "--rad": "4px", "--rads": "2px", "--blur": "12px", "--tbg": "rgba(250,246,241,0.88)", "--sbg": "rgba(250,248,244,0.96)", "--hdfont": "'DM Sans'", "--hdsz": "22px", "--hdw": "400", "--cardpad": "20px", "--fabrad": "2px" },
+      bg: "sakura"
+    },
+    {
+      id: "cyber",
+      name: "Cyber",
+      ru: "\u041A\u0438\u0431\u0435\u0440",
+      emoji: "\u26A1",
+      desc: "Cyberpunk neon glow",
+      dru: "\u041D\u0435\u043E\u043D\u043E\u0432\u044B\u0439 \u043A\u0438\u0431\u0435\u0440\u043F\u0430\u043D\u043A",
+      uiClass: "ui-cyber",
+      // clipped corners, glow borders, angular shapes
+      vars: { "--bg": "#0A0A12", "--bg2": "#14141F", "--card": "rgba(20,20,35,0.75)", "--cbrd": "rgba(0,255,170,0.15)", "--text": "#E0FFE8", "--t2": "#5AE080", "--t3": "#2A6040", "--brd": "rgba(0,255,170,0.1)", "--acc": "#00FFAA", "--accR": "0,255,170", "--accB": "rgba(0,255,170,0.1)", "--red": "#FF2255", "--redB": "rgba(255,34,85,0.12)", "--grn": "#00FFAA", "--grnB": "rgba(0,255,170,0.1)", "--org": "#FFE000", "--shd": "0 0 25px rgba(0,255,170,0.08)", "--rad": "4px", "--rads": "2px", "--blur": "12px", "--tbg": "rgba(10,10,18,0.88)", "--sbg": "rgba(20,20,35,0.97)", "--hdfont": "'DM Sans'", "--hdsz": "24px", "--hdw": "800", "--cardpad": "14px", "--fabrad": "8px" },
+      bg: "cybergrid"
+    },
+    {
+      id: "glass",
+      name: "Glass",
+      ru: "\u0421\u0442\u0435\u043A\u043B\u043E",
+      emoji: "\u{1F52E}",
+      desc: "Frosted glassmorphism",
+      dru: "\u0413\u043B\u0430\u0441\u0441\u043C\u043E\u0440\u0444\u0438\u0437\u043C",
+      uiClass: "ui-glass",
+      // heavy blur, overlapping cards, floating elements
+      vars: { "--bg": "#0F0F1A", "--bg2": "#1A1A2E", "--card": "rgba(255,255,255,0.05)", "--cbrd": "rgba(255,255,255,0.1)", "--text": "#F0F0F5", "--t2": "#8888AA", "--t3": "#555577", "--brd": "rgba(255,255,255,0.06)", "--acc": "#7B68EE", "--accR": "123,104,238", "--accB": "rgba(123,104,238,0.12)", "--red": "#FF6B8A", "--redB": "rgba(255,107,138,0.1)", "--grn": "#5BF5A0", "--grnB": "rgba(91,245,160,0.1)", "--org": "#FFAA5C", "--shd": "0 8px 32px rgba(0,0,0,0.3)", "--rad": "20px", "--rads": "14px", "--blur": "24px", "--tbg": "rgba(15,15,26,0.6)", "--sbg": "rgba(26,26,46,0.92)", "--hdfont": "'DM Sans'", "--hdsz": "28px", "--hdw": "700", "--cardpad": "18px", "--fabrad": "50%" },
+      bg: "glassorbs"
+    },
+    {
+      id: "midnight",
+      name: "Midnight",
+      ru: "\u041F\u043E\u043B\u043D\u043E\u0447\u044C",
+      emoji: "\u{1F319}",
+      desc: "Starry sky",
+      dru: "\u0417\u0432\u0451\u0437\u0434\u043D\u0430\u044F \u043D\u043E\u0447\u044C",
+      uiClass: "ui-midnight",
+      vars: { "--bg": "#05051A", "--bg2": "#0D0D2B", "--card": "rgba(20,20,60,0.55)", "--cbrd": "rgba(100,100,200,0.08)", "--text": "#E8E8FF", "--t2": "#7878AA", "--t3": "#3D3D66", "--brd": "rgba(100,100,200,0.1)", "--acc": "#6C8EFF", "--accR": "108,142,255", "--accB": "rgba(108,142,255,0.12)", "--red": "#FF5577", "--redB": "rgba(255,85,119,0.1)", "--grn": "#44DDAA", "--grnB": "rgba(68,221,170,0.1)", "--org": "#FFBB55", "--shd": "none", "--rad": "16px", "--rads": "10px", "--blur": "16px", "--tbg": "rgba(5,5,26,0.85)", "--sbg": "rgba(13,13,43,0.95)", "--hdfont": "'DM Sans'", "--hdsz": "28px", "--hdw": "800", "--cardpad": "16px", "--fabrad": "50%" },
+      bg: "stars"
+    },
+    {
+      id: "forest",
+      name: "Forest",
+      ru: "\u041B\u0435\u0441",
+      emoji: "\u{1F33F}",
+      desc: "Earthy nature",
+      dru: "\u041F\u0440\u0438\u0440\u043E\u0434\u0430",
+      uiClass: "ui-forest",
+      vars: { "--bg": "#F4F1EC", "--bg2": "#E8E3DA", "--card": "rgba(253,252,250,0.88)", "--cbrd": "rgba(107,142,85,0.12)", "--text": "#2D3B2D", "--t2": "#6B7C6B", "--t3": "#A0AE9E", "--brd": "#D5CEBC", "--acc": "#5A8F4A", "--accR": "90,143,74", "--accB": "rgba(90,143,74,0.1)", "--red": "#C75D4A", "--redB": "rgba(199,93,74,0.08)", "--grn": "#5A8F4A", "--grnB": "rgba(90,143,74,0.08)", "--org": "#D4924A", "--shd": "0 2px 10px rgba(45,59,45,0.06)", "--rad": "16px", "--rads": "10px", "--blur": "8px", "--tbg": "rgba(244,241,236,0.92)", "--sbg": "rgba(253,252,250,0.97)", "--hdfont": "'DM Sans'", "--hdsz": "28px", "--hdw": "700", "--cardpad": "16px", "--fabrad": "50%" },
+      bg: "leaves"
+    },
+    {
+      id: "ocean",
+      name: "Ocean",
+      ru: "\u041E\u043A\u0435\u0430\u043D",
+      emoji: "\u{1F30A}",
+      desc: "Deep blue waves",
+      dru: "\u041C\u043E\u0440\u0441\u043A\u0438\u0435 \u0432\u043E\u043B\u043D\u044B",
+      uiClass: "ui-ocean",
+      vars: { "--bg": "#0C1B2A", "--bg2": "#132D46", "--card": "rgba(19,45,70,0.5)", "--cbrd": "rgba(100,200,255,0.08)", "--text": "#E8F4FD", "--t2": "#7EB8DB", "--t3": "#3D6E8E", "--brd": "rgba(100,200,255,0.06)", "--acc": "#00B4D8", "--accR": "0,180,216", "--accB": "rgba(0,180,216,0.12)", "--red": "#FF6B6B", "--redB": "rgba(255,107,107,0.1)", "--grn": "#4AE0A0", "--grnB": "rgba(74,224,160,0.1)", "--org": "#FFB347", "--shd": "0 4px 20px rgba(0,0,0,0.25)", "--rad": "18px", "--rads": "12px", "--blur": "16px", "--tbg": "rgba(12,27,42,0.8)", "--sbg": "rgba(19,45,70,0.96)", "--hdfont": "'DM Sans'", "--hdsz": "28px", "--hdw": "800", "--cardpad": "16px", "--fabrad": "50%" },
+      bg: "waves"
+    },
+    {
+      id: "sunset",
+      name: "Sunset",
+      ru: "\u0417\u0430\u043A\u0430\u0442",
+      emoji: "\u{1F305}",
+      desc: "Warm amber",
+      dru: "\u0422\u0451\u043F\u043B\u044B\u0439 \u0437\u0430\u043A\u0430\u0442",
+      uiClass: "ui-sunset",
+      vars: { "--bg": "#FFF8F0", "--bg2": "#FFEDD5", "--card": "rgba(255,252,248,0.88)", "--cbrd": "rgba(255,149,0,0.1)", "--text": "#3D2207", "--t2": "#9B7240", "--t3": "#CCAB7E", "--brd": "#F0DFC8", "--acc": "#F57C00", "--accR": "245,124,0", "--accB": "rgba(245,124,0,0.1)", "--red": "#E84040", "--redB": "rgba(232,64,64,0.08)", "--grn": "#43A047", "--grnB": "rgba(67,160,71,0.08)", "--org": "#F57C00", "--shd": "0 2px 12px rgba(245,124,0,0.06)", "--rad": "16px", "--rads": "11px", "--blur": "8px", "--tbg": "rgba(255,248,240,0.92)", "--sbg": "rgba(255,252,248,0.97)", "--hdfont": "'DM Sans'", "--hdsz": "28px", "--hdw": "800", "--cardpad": "16px", "--fabrad": "50%" },
+      bg: "sun"
+    },
+    {
+      id: "lavender",
+      name: "Lavender",
+      ru: "\u041B\u0430\u0432\u0430\u043D\u0434\u0430",
+      emoji: "\u{1F49C}",
+      desc: "Purple calm",
+      dru: "\u0424\u0438\u043E\u043B\u0435\u0442\u043E\u0432\u044B\u0439 \u043F\u043E\u043A\u043E\u0439",
+      uiClass: "ui-lavender",
+      vars: { "--bg": "#F8F5FF", "--bg2": "#EDE5FF", "--card": "rgba(255,255,255,0.86)", "--cbrd": "rgba(147,130,220,0.1)", "--text": "#2D2248", "--t2": "#7E6FAA", "--t3": "#B8AECC", "--brd": "#E4DDEE", "--acc": "#7C5CFC", "--accR": "124,92,252", "--accB": "rgba(124,92,252,0.08)", "--red": "#E84070", "--redB": "rgba(232,64,112,0.08)", "--grn": "#43B88C", "--grnB": "rgba(67,184,140,0.08)", "--org": "#F0923E", "--shd": "0 2px 12px rgba(124,92,252,0.05)", "--rad": "18px", "--rads": "12px", "--blur": "10px", "--tbg": "rgba(248,245,255,0.92)", "--sbg": "rgba(255,255,255,0.97)", "--hdfont": "'DM Sans'", "--hdsz": "28px", "--hdw": "700", "--cardpad": "16px", "--fabrad": "50%" },
+      bg: "lavfields"
+    },
+    {
+      id: "carbon",
+      name: "Carbon",
+      ru: "\u041A\u0430\u0440\u0431\u043E\u043D",
+      emoji: "\u{1F5A4}",
+      desc: "Matte black",
+      dru: "\u041C\u0430\u0442\u043E\u0432\u044B\u0439 \u0447\u0451\u0440\u043D\u044B\u0439",
+      uiClass: "ui-carbon",
+      vars: { "--bg": "#141414", "--bg2": "#1E1E1E", "--card": "#242424", "--cbrd": "rgba(255,255,255,0.04)", "--text": "#E8E8E8", "--t2": "#888888", "--t3": "#4A4A4A", "--brd": "#333333", "--acc": "#FF6633", "--accR": "255,102,51", "--accB": "rgba(255,102,51,0.1)", "--red": "#FF4444", "--redB": "rgba(255,68,68,0.1)", "--grn": "#44DD88", "--grnB": "rgba(68,221,136,0.1)", "--org": "#FFAA33", "--shd": "none", "--rad": "10px", "--rads": "6px", "--blur": "0", "--tbg": "rgba(20,20,20,0.92)", "--sbg": "#242424", "--hdfont": "'DM Sans'", "--hdsz": "28px", "--hdw": "800", "--cardpad": "16px", "--fabrad": "50%" },
+      bg: "carbonpat"
+    }
+  ];
+  function ThemeBg({ id }) {
+    if (!id) return null;
+    const s = { position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none" };
+    const bgs = {
+      sakura: /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none", overflow: "hidden" } }, /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", inset: 0, background: "linear-gradient(170deg, rgba(255,220,225,0.15) 0%, transparent 40%, rgba(255,200,210,0.08) 70%, transparent 100%)" } }), [...Array(20)].map((_, i) => {
+        const sz = 8 + Math.random() * 10;
+        const x = Math.random() * 100;
+        const dur = 8 + Math.random() * 12;
+        const del = -Math.random() * 20;
+        const rot = Math.random() * 360;
+        const drift = 15 + Math.random() * 25;
+        return /* @__PURE__ */ React.createElement("div", { key: i, style: { position: "absolute", left: `${x}%`, top: "-20px", width: sz, height: sz, opacity: 0.15 + Math.random() * 0.2, animation: `sakuraFall ${dur}s ${del}s linear infinite`, willChange: "transform" } }, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 20 20", width: sz, height: sz }, /* @__PURE__ */ React.createElement("path", { d: `M10 0 C7 4 3 7 5 10 C7 8 9 9 10 14 C11 9 13 8 15 10 C17 7 13 4 10 0Z`, fill: "#E8A0B0", transform: `rotate(${rot} 10 10)` })));
+      }), [...Array(8)].map((_, i) => {
+        const sz = 6 + Math.random() * 8;
+        const x = Math.random() * 100;
+        const dur = 12 + Math.random() * 10;
+        const del = -Math.random() * 15;
+        return /* @__PURE__ */ React.createElement("div", { key: "b" + i, style: { position: "absolute", left: `${x}%`, top: "-15px", width: sz, height: sz, opacity: 0.08 + Math.random() * 0.1, animation: `sakuraFall ${dur}s ${del}s linear infinite`, filter: "blur(1px)" } }, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 20 20", width: sz, height: sz }, /* @__PURE__ */ React.createElement("circle", { cx: "10", cy: "10", r: "8", fill: "#FFB7C5" })));
+      })), /* @__PURE__ */ React.createElement("style", null, `@keyframes sakuraFall{0%{transform:translateY(-20px) translateX(0) rotate(0deg)}25%{transform:translateY(25vh) translateX(20px) rotate(90deg)}50%{transform:translateY(50vh) translateX(-15px) rotate(180deg)}75%{transform:translateY(75vh) translateX(25px) rotate(270deg)}100%{transform:translateY(105vh) translateX(5px) rotate(360deg)}}`)),
+      cybergrid: /* @__PURE__ */ React.createElement("svg", { style: { ...s, opacity: 0.15 }, viewBox: "0 0 430 932" }, /* @__PURE__ */ React.createElement("defs", null, /* @__PURE__ */ React.createElement("pattern", { id: "cg", width: "40", height: "40", patternUnits: "userSpaceOnUse" }, /* @__PURE__ */ React.createElement("path", { d: "M40 0L0 0 0 40", fill: "none", stroke: "rgba(0,255,170,0.12)", strokeWidth: ".5" }))), /* @__PURE__ */ React.createElement("rect", { fill: "url(#cg)", width: "430", height: "932" }), [...Array(5)].map((_, i) => /* @__PURE__ */ React.createElement("line", { key: i, x1: i * 100 + 15, y1: "0", x2: i * 100 + 15, y2: "932", stroke: "#00FFAA", strokeWidth: "1", opacity: ".04" })), /* @__PURE__ */ React.createElement("rect", { x: "0", y: "300", width: "430", height: "1", fill: "#FF2255", opacity: ".06" }), /* @__PURE__ */ React.createElement("rect", { x: "0", y: "650", width: "430", height: "1", fill: "#00FFAA", opacity: ".04" })),
+      glassorbs: /* @__PURE__ */ React.createElement("svg", { style: { ...s, opacity: 0.2 }, viewBox: "0 0 430 932" }, /* @__PURE__ */ React.createElement("defs", null, /* @__PURE__ */ React.createElement("radialGradient", { id: "go1", cx: "25%", cy: "20%" }, /* @__PURE__ */ React.createElement("stop", { offset: "0%", stopColor: "#7B68EE", stopOpacity: ".35" }), /* @__PURE__ */ React.createElement("stop", { offset: "100%", stopColor: "transparent" })), /* @__PURE__ */ React.createElement("radialGradient", { id: "go2", cx: "75%", cy: "75%" }, /* @__PURE__ */ React.createElement("stop", { offset: "0%", stopColor: "#FF6B8A", stopOpacity: ".25" }), /* @__PURE__ */ React.createElement("stop", { offset: "100%", stopColor: "transparent" }))), /* @__PURE__ */ React.createElement("rect", { fill: "url(#go1)", width: "430", height: "932" }), /* @__PURE__ */ React.createElement("rect", { fill: "url(#go2)", width: "430", height: "932" }), [...Array(4)].map((_, i) => /* @__PURE__ */ React.createElement("circle", { key: i, cx: 60 + i * 90, cy: 200 + i * 160, r: 45 + i * 10, fill: "none", stroke: "rgba(255,255,255,0.05)", strokeWidth: "1" }))),
+      stars: /* @__PURE__ */ React.createElement("svg", { style: s, viewBox: "0 0 430 932" }, /* @__PURE__ */ React.createElement("defs", null, /* @__PURE__ */ React.createElement("radialGradient", { id: "sg", cx: "50%", cy: "0%" }, /* @__PURE__ */ React.createElement("stop", { offset: "0%", stopColor: "#1a1a5e", stopOpacity: ".4" }), /* @__PURE__ */ React.createElement("stop", { offset: "100%", stopColor: "transparent" }))), /* @__PURE__ */ React.createElement("rect", { fill: "url(#sg)", width: "430", height: "932" }), [...Array(45)].map((_, i) => /* @__PURE__ */ React.createElement("circle", { key: i, cx: Math.random() * 430, cy: Math.random() * 932, r: 0.3 + Math.random() * 1.2, fill: "white", opacity: 0.15 + Math.random() * 0.45 })), /* @__PURE__ */ React.createElement("circle", { cx: "360", cy: "80", r: "20", fill: "#E8E8FF", opacity: ".05" })),
+      leaves: /* @__PURE__ */ React.createElement("svg", { style: { ...s, opacity: 0.1 }, viewBox: "0 0 430 932" }, [...Array(10)].map((_, i) => /* @__PURE__ */ React.createElement("g", { key: i, transform: `translate(${20 + Math.sin(i * 2) * 180},${30 + i * 85}) scale(${0.4 + Math.random() * 0.35})`, opacity: 0.2 + Math.random() * 0.25 }, /* @__PURE__ */ React.createElement("path", { d: "M15 0C12 5 8 8 0 15C5 13 8 14 15 30C22 14 25 13 30 15C22 8 18 5 15 0Z", fill: "#7BAF5A" })))),
+      waves: /* @__PURE__ */ React.createElement("svg", { style: { ...s, opacity: 0.12 }, viewBox: "0 0 430 932" }, [0, 1, 2, 3].map((i) => /* @__PURE__ */ React.createElement("path", { key: i, d: `M0 ${420 + i * 110} Q108 ${390 + i * 110} 215 ${420 + i * 110} T430 ${420 + i * 110} V932 H0Z`, fill: `rgba(0,180,216,${0.06 - 0.01 * i})` }))),
+      sun: /* @__PURE__ */ React.createElement("svg", { style: { ...s, opacity: 0.16 }, viewBox: "0 0 430 932" }, /* @__PURE__ */ React.createElement("defs", null, /* @__PURE__ */ React.createElement("linearGradient", { id: "sng", x1: "0", y1: "0", x2: "0", y2: "1" }, /* @__PURE__ */ React.createElement("stop", { offset: "0%", stopColor: "#FF9500", stopOpacity: ".2" }), /* @__PURE__ */ React.createElement("stop", { offset: "100%", stopColor: "transparent" }))), /* @__PURE__ */ React.createElement("rect", { fill: "url(#sng)", width: "430", height: "932" }), /* @__PURE__ */ React.createElement("circle", { cx: "215", cy: "150", r: "50", fill: "#FFD700", opacity: ".08" })),
+      lavfields: /* @__PURE__ */ React.createElement("svg", { style: { ...s, opacity: 0.1 }, viewBox: "0 0 430 932" }, /* @__PURE__ */ React.createElement("defs", null, /* @__PURE__ */ React.createElement("radialGradient", { id: "lv", cx: "30%", cy: "40%" }, /* @__PURE__ */ React.createElement("stop", { offset: "0%", stopColor: "#B39DDB", stopOpacity: ".25" }), /* @__PURE__ */ React.createElement("stop", { offset: "100%", stopColor: "transparent" }))), /* @__PURE__ */ React.createElement("rect", { fill: "url(#lv)", width: "430", height: "932" }), [...Array(7)].map((_, i) => /* @__PURE__ */ React.createElement("g", { key: i, transform: `translate(${50 + i * 48},${140 + i * 100})` }, /* @__PURE__ */ React.createElement("ellipse", { rx: "3", ry: "9", fill: "#9C7CF2", opacity: ".2" }), /* @__PURE__ */ React.createElement("ellipse", { rx: "3", ry: "9", fill: "#B39DDB", opacity: ".15", transform: "translate(7,-4)" })))),
+      carbonpat: /* @__PURE__ */ React.createElement("svg", { style: { ...s, opacity: 0.04 }, viewBox: "0 0 430 932" }, /* @__PURE__ */ React.createElement("defs", null, /* @__PURE__ */ React.createElement("pattern", { id: "cpat", width: "20", height: "20", patternUnits: "userSpaceOnUse" }, /* @__PURE__ */ React.createElement("path", { d: "M0 10 L10 0 L20 10 L10 20Z", fill: "none", stroke: "rgba(255,255,255,.12)", strokeWidth: ".3" }))), /* @__PURE__ */ React.createElement("rect", { fill: "url(#cpat)", width: "430", height: "932" }))
+    };
+    return bgs[id] || null;
+  }
+  function lerpC(a, b, t) {
+    if (a === b) return a;
+    const h2 = (s) => {
+      try {
+        return [parseInt(s.slice(1, 3), 16), parseInt(s.slice(3, 5), 16), parseInt(s.slice(5, 7), 16)];
+      } catch {
+        return null;
+      }
+    };
+    if (a?.startsWith("#") && b?.startsWith("#") && a.length >= 7 && b.length >= 7) {
+      const [ra, ga, ba] = h2(a), [rb, gb, bb] = h2(b);
+      const r = ra + (rb - ra) * t | 0, g = ga + (gb - ga) * t | 0, bl = ba + (bb - ba) * t | 0;
+      return `#${((1 << 24) + (r << 16) + (g << 8) + bl).toString(16).slice(1)}`;
+    }
+    const pa = a?.match?.(/[\d.]+/g)?.map(Number), pb = b?.match?.(/[\d.]+/g)?.map(Number);
+    if (pa && pb && pa.length === pb.length) {
+      const r = pa.map((v, i) => +(v + (pb[i] - v) * t).toFixed(3));
+      return a.startsWith("rgba") ? `rgba(${r[0] | 0},${r[1] | 0},${r[2] | 0},${r[3]})` : a.startsWith("rgb") ? `rgb(${r[0] | 0},${r[1] | 0},${r[2] | 0})` : t < 0.5 ? a : b;
+    }
+    return t < 0.5 ? a : b;
+  }
+  function interp(p) {
+    const n = THEMES.length - 1, idx = p * n, lo = Math.floor(idx), hi = Math.min(lo + 1, n), t = idx - lo, a = THEMES[lo].vars, b = THEMES[hi].vars, r = {};
+    for (const k in a) {
+      if (k.includes("font") || k.includes("rad") || k.includes("blur") || k.includes("pad")) {
+        r[k] = t < 0.5 ? a[k] : b[k];
+      } else {
+        try {
+          r[k] = lerpC(a[k], b[k], t);
+        } catch {
+          r[k] = t < 0.5 ? a[k] : b[k];
+        }
+      }
+    }
+    return { vars: r, theme: t < 0.5 ? THEMES[lo] : THEMES[hi] };
+  }
+  function applyV(v) {
+    const root = document.documentElement;
+    for (const [k, val] of Object.entries(v)) root.style.setProperty(k, val);
+  }
+  const CUR = [{ c: "EUR", s: "\u20AC" }, { c: "USD", s: "$" }, { c: "RUB", s: "\u20BD" }, { c: "GBP", s: "\xA3" }, { c: "CHF", s: "Fr" }, { c: "TRY", s: "\u20BA" }, { c: "UAH", s: "\u20B4" }, { c: "KZT", s: "\u20B8" }, { c: "GEL", s: "\u20BE" }];
+  const EC = [{ id: "food", i: "\u{1F355}", n: "Food", r: "\u0415\u0434\u0430" }, { id: "transport", i: "\u{1F697}", n: "Transport", r: "\u0422\u0440\u0430\u043D\u0441\u043F\u043E\u0440\u0442" }, { id: "housing", i: "\u{1F3E0}", n: "Housing", r: "\u0416\u0438\u043B\u044C\u0451" }, { id: "utilities", i: "\u{1F4A1}", n: "Utilities", r: "\u041A\u043E\u043C\u043C\u0443\u043D\u0430\u043B\u043A\u0430" }, { id: "groceries", i: "\u{1F6D2}", n: "Groceries", r: "\u041F\u0440\u043E\u0434\u0443\u043A\u0442\u044B" }, { id: "dining", i: "\u{1F377}", n: "Dining", r: "\u0420\u0435\u0441\u0442\u043E\u0440\u0430\u043D\u044B" }, { id: "entertainment", i: "\u{1F3AC}", n: "Fun", r: "\u0420\u0430\u0437\u0432\u043B\u0435\u0447\u0435\u043D\u0438\u044F" }, { id: "shopping", i: "\u{1F6CD}\uFE0F", n: "Shopping", r: "\u041F\u043E\u043A\u0443\u043F\u043A\u0438" }, { id: "health", i: "\u{1F48A}", n: "Health", r: "\u0417\u0434\u043E\u0440\u043E\u0432\u044C\u0435" }, { id: "education", i: "\u{1F4DA}", n: "Education", r: "\u041E\u0431\u0440\u0430\u0437\u043E\u0432\u0430\u043D\u0438\u0435" }, { id: "clothing", i: "\u{1F455}", n: "Clothing", r: "\u041E\u0434\u0435\u0436\u0434\u0430" }, { id: "travel", i: "\u2708\uFE0F", n: "Travel", r: "\u041F\u0443\u0442\u0435\u0448\u0435\u0441\u0442\u0432\u0438\u044F" }, { id: "gifts", i: "\u{1F381}", n: "Gifts", r: "\u041F\u043E\u0434\u0430\u0440\u043A\u0438" }, { id: "beauty", i: "\u{1F484}", n: "Beauty", r: "\u041A\u0440\u0430\u0441\u043E\u0442\u0430" }, { id: "other", i: "\u{1F4E6}", n: "Other", r: "\u0414\u0440\u0443\u0433\u043E\u0435" }];
+  const IC = [{ id: "salary", i: "\u{1F4B0}", n: "Salary", r: "\u0417\u0430\u0440\u043F\u043B\u0430\u0442\u0430" }, { id: "freelance", i: "\u{1F4BB}", n: "Freelance", r: "\u0424\u0440\u0438\u043B\u0430\u043D\u0441" }, { id: "investment", i: "\u{1F4C8}", n: "Invest", r: "\u0418\u043D\u0432\u0435\u0441\u0442\u0438\u0446\u0438\u0438" }, { id: "rental", i: "\u{1F3E2}", n: "Rental", r: "\u0410\u0440\u0435\u043D\u0434\u0430" }, { id: "refund", i: "\u21A9\uFE0F", n: "Refund", r: "\u0412\u043E\u0437\u0432\u0440\u0430\u0442" }, { id: "bonus", i: "\u2B50", n: "Bonus", r: "\u0411\u043E\u043D\u0443\u0441" }, { id: "other_inc", i: "\u2795", n: "Other", r: "\u0414\u0440\u0443\u0433\u043E\u0435" }];
+  const BIL = [{ id: "weekly", n: "Wk", r: "\u041D\u0435\u0434", m: 12 / 52 }, { id: "monthly", n: "Mo", r: "\u041C\u0435\u0441", m: 1 }, { id: "quarterly", n: "Qtr", r: "\u041A\u0432", m: 3 }, { id: "yearly", n: "Yr", r: "\u0413\u043E\u0434", m: 12 }];
+  const SVC = [
+    { id: "youtube", name: "YouTube", cat: "entertainment", icon: "\u25B6\uFE0F", color: "#FF0000" },
+    { id: "netflix", name: "Netflix", cat: "entertainment", icon: "\u{1F3AC}", color: "#E50914" },
+    { id: "spotify", name: "Spotify", cat: "entertainment", icon: "\u{1F3B5}", color: "#1DB954" },
+    { id: "apple_music", name: "Apple Music", cat: "entertainment", icon: "\u{1F3A7}", color: "#FC3C44" },
+    { id: "disney", name: "Disney+", cat: "entertainment", icon: "\u{1F3F0}", color: "#113CCF" },
+    { id: "hbo", name: "HBO Max", cat: "entertainment", icon: "\u{1F3AD}", color: "#5822B4" },
+    { id: "telegram", name: "Telegram", cat: "social", icon: "\u2708\uFE0F", color: "#0088CC" },
+    { id: "icloud", name: "iCloud+", cat: "cloud", icon: "\u2601\uFE0F", color: "#3693F5" },
+    { id: "google_one", name: "Google One", cat: "cloud", icon: "\u{1F535}", color: "#4285F4" },
+    { id: "notion", name: "Notion", cat: "productivity", icon: "\u{1F4DD}", color: "#191919" },
+    { id: "chatgpt", name: "ChatGPT Plus", cat: "ai", icon: "\u{1F916}", color: "#10A37F" },
+    { id: "claude_ai", name: "Claude Pro", cat: "ai", icon: "\u{1F9E0}", color: "#D4A27F" },
+    { id: "midjourney", name: "Midjourney", cat: "ai", icon: "\u{1F3A8}", color: "#191919" },
+    { id: "gym", name: "Gym", cat: "health", icon: "\u{1F3CB}\uFE0F", color: "#FF6B35" },
+    { id: "ps_plus", name: "PS Plus", cat: "gaming", icon: "\u{1F3AE}", color: "#003087" },
+    { id: "xbox", name: "Xbox Pass", cat: "gaming", icon: "\u{1F7E2}", color: "#107C10" },
+    { id: "rent", name: "Rent", cat: "housing", icon: "\u{1F3E0}", color: "#795548" },
+    { id: "electricity", name: "Electricity", cat: "utilities", icon: "\u{1F4A1}", color: "#FFC107" },
+    { id: "internet", name: "Internet", cat: "utilities", icon: "\u{1F4F6}", color: "#00BCD4" },
+    { id: "mobile", name: "Mobile", cat: "utilities", icon: "\u{1F4F1}", color: "#607D8B" },
+    { id: "insurance", name: "Insurance", cat: "insurance", icon: "\u{1F6E1}\uFE0F", color: "#455A64" },
+    { id: "duolingo", name: "Duolingo", cat: "education", icon: "\u{1F989}", color: "#58CC02" },
+    { id: "delivery", name: "Delivery", cat: "food", icon: "\u{1F355}", color: "#FF5722" },
+    { id: "uber", name: "Uber", cat: "transport", icon: "\u{1F695}", color: "#191919" },
+    { id: "metro", name: "Transit", cat: "transport", icon: "\u{1F687}", color: "#2196F3" },
+    { id: "custom", name: "+ Custom", nameRu: "+ \u0421\u0432\u043E\u044F", cat: "other", icon: "\u270F\uFE0F", color: "#9E9E9E", isCustom: true }
+  ];
+  const CC = ["#FF6B6B", "#4ECDC4", "#45B7D1", "#F7DC6F", "#BB8FCE", "#F1948A", "#E74C3C", "#5DADE2", "#48C9B0", "#82E0AA", "#D4AC0D", "#AF7AC5", "#F0B27A", "#5D6D7E", "#2ECC71"];
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2);
+  const LS = { g(k) {
+    try {
+      return JSON.parse(localStorage.getItem(k));
+    } catch {
+      return null;
+    }
+  }, s(k, v) {
+    try {
+      localStorage.setItem(k, JSON.stringify(v));
+    } catch {
+    }
+  } };
+  const csym = (c) => (CUR.find((x) => x.c === c) || CUR[0]).s;
+  const fmtA = (a, c) => `${csym(c)} ${Math.abs(a).toFixed(2)}`;
+  const fmtSgn = (a, c) => `${a < 0 ? "\u2212" : a > 0 ? "+" : ""}${csym(c)} ${Math.abs(a).toFixed(2)}`;
+  const catM = (id, tp, ln) => {
+    const l = tp === "income" ? IC : EC;
+    const c = l.find((x) => x.id === id) || { i: "\u2753", n: id, r: id };
+    return { ...c, lb: ln === "ru" ? c.r : c.n };
+  };
+  const dTo = (d) => {
+    const a = new Date(d), b = /* @__PURE__ */ new Date();
+    a.setHours(0, 0, 0, 0);
+    b.setHours(0, 0, 0, 0);
+    return Math.ceil((a - b) / 864e5);
+  };
+  const pS = (p) => {
+    const n = /* @__PURE__ */ new Date();
+    if (p === "week") {
+      const d = new Date(n);
+      d.setDate(d.getDate() - d.getDay() + (d.getDay() === 0 ? -6 : 1));
+      d.setHours(0, 0, 0, 0);
+      return d;
+    }
+    if (p === "month") return new Date(n.getFullYear(), n.getMonth(), 1);
+    if (p === "year") return new Date(n.getFullYear(), 0, 1);
+    return /* @__PURE__ */ new Date(0);
+  };
+  const fmtD = (d, ln) => {
+    const x = new Date(d), n = /* @__PURE__ */ new Date();
+    if (x.toDateString() === n.toDateString()) return ln === "ru" ? "\u0421\u0435\u0433\u043E\u0434\u043D\u044F" : "Today";
+    const y = new Date(n);
+    y.setDate(n.getDate() - 1);
+    if (x.toDateString() === y.toDateString()) return ln === "ru" ? "\u0412\u0447\u0435\u0440\u0430" : "Yesterday";
+    return x.toLocaleDateString(ln === "ru" ? "ru-RU" : "en-US", { day: "numeric", month: "short" });
+  };
+  const T = {
+    en: { dashboard: "Dashboard", transactions: "Activity", subscriptions: "Subscriptions", settings: "Settings", analytics: "Analytics", balance: "Balance", income: "Income", expenses: "Expenses", add: "New Transaction", expense: "Expense", incomeType: "Income", amount: "Amount", category: "Category", note: "Note", notePh: "Comment\u2026", save: "Save", cancel: "Cancel", delete: "Delete", edit: "Edit", week: "Wk", month: "Mo", year: "Yr", all: "All", topCat: "Top Categories", recent: "Recent", seeAll: "See All \u2192", noTx: "No transactions", noTxH: "Tap + to add", moTotal: "Monthly", yrEst: "per year", active: "Active", paused: "Paused", addSub: "New Subscription", cycle: "Period", resume: "Resume", currency: "Currency", lang: "Language", design: "Design", mode: "Mode", sheets: "Google Sheets", sheetUrl: "Sheet URL", webhookUrl: "Webhook", connected: "Connected", notConn: "Not connected", sync: "Sync", syncing: "Syncing\u2026", synced: "Done", syncErr: "Error", clear: "Clear Data", clearQ: "Delete all data?", next: "Next \u2192", start: "Let's go! \u{1F680}", chooseMode: "Choose mode", chooseModeH: "Change later in Settings", chooseDesign: "Choose design", chooseDesignH: "Drag slider \u2014 morphs live", chooseCur: "Currency", chooseCurH: "Change later", lite: "Lite", liteH: "Simple tracking.", pro: "Pro", proH: "Analytics, budgets, goals.", trend: "Trend", search: "Search\u2026", pickSvc: "Choose service", customPh: "Name\u2026", date: "Date", color: "Color", budgets: "Budgets", setBudget: "Set limit", spent: "spent", left: "left", over: "over", goals: "Goals", addGoal: "Add Goal", goalPh: "Vacation, Car\u2026", target: "Target", saved: "Saved", addSaving: "Add", goalDone: "Done! \u{1F389}", compare: "vs Last Month", avgDaily: "Avg Daily", noData: "Not enough data", dueToday: "Today", tomorrow: "Tomorrow", inDays: "in %d d", more: "More", txCurrency: "Tx Currency" },
+    ru: { dashboard: "\u041E\u0431\u0437\u043E\u0440", transactions: "\u041E\u043F\u0435\u0440\u0430\u0446\u0438\u0438", subscriptions: "\u041F\u043E\u0434\u043F\u0438\u0441\u043A\u0438", settings: "\u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438", analytics: "\u0410\u043D\u0430\u043B\u0438\u0442\u0438\u043A\u0430", balance: "\u0411\u0430\u043B\u0430\u043D\u0441", income: "\u0414\u043E\u0445\u043E\u0434\u044B", expenses: "\u0420\u0430\u0441\u0445\u043E\u0434\u044B", add: "\u041D\u043E\u0432\u0430\u044F \u043E\u043F\u0435\u0440\u0430\u0446\u0438\u044F", expense: "\u0420\u0430\u0441\u0445\u043E\u0434", incomeType: "\u0414\u043E\u0445\u043E\u0434", amount: "\u0421\u0443\u043C\u043C\u0430", category: "\u041A\u0430\u0442\u0435\u0433\u043E\u0440\u0438\u044F", note: "\u0417\u0430\u043C\u0435\u0442\u043A\u0430", notePh: "\u041A\u043E\u043C\u043C\u0435\u043D\u0442\u0430\u0440\u0438\u0439\u2026", save: "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C", cancel: "\u041E\u0442\u043C\u0435\u043D\u0430", delete: "\u0423\u0434\u0430\u043B\u0438\u0442\u044C", edit: "\u0418\u0437\u043C\u0435\u043D\u0438\u0442\u044C", week: "\u041D\u0435\u0434", month: "\u041C\u0435\u0441", year: "\u0413\u043E\u0434", all: "\u0412\u0441\u0451", topCat: "\u0422\u043E\u043F \u043A\u0430\u0442\u0435\u0433\u043E\u0440\u0438\u0439", recent: "\u041F\u043E\u0441\u043B\u0435\u0434\u043D\u0438\u0435", seeAll: "\u0412\u0441\u0435 \u2192", noTx: "\u041D\u0435\u0442 \u043E\u043F\u0435\u0440\u0430\u0446\u0438\u0439", noTxH: "\u041D\u0430\u0436\u043C\u0438\u0442\u0435 + \u0447\u0442\u043E\u0431\u044B \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u044C", moTotal: "\u0412 \u043C\u0435\u0441\u044F\u0446", yrEst: "\u0432 \u0433\u043E\u0434", active: "\u0410\u043A\u0442\u0438\u0432\u043D\u044B\u0435", paused: "\u041F\u0430\u0443\u0437\u0430", addSub: "\u041D\u043E\u0432\u0430\u044F \u043F\u043E\u0434\u043F\u0438\u0441\u043A\u0430", cycle: "\u041F\u0435\u0440\u0438\u043E\u0434", resume: "\u0412\u043E\u0437\u043E\u0431\u043D\u043E\u0432\u0438\u0442\u044C", currency: "\u0412\u0430\u043B\u044E\u0442\u0430", lang: "\u042F\u0437\u044B\u043A", design: "\u0414\u0438\u0437\u0430\u0439\u043D", mode: "\u0420\u0435\u0436\u0438\u043C", sheets: "Google \u0422\u0430\u0431\u043B\u0438\u0446\u044B", sheetUrl: "\u0421\u0441\u044B\u043B\u043A\u0430", webhookUrl: "\u0412\u0435\u0431\u0445\u0443\u043A", connected: "\u041F\u043E\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u043E", notConn: "\u041D\u0435\u0442", sync: "\u0421\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0430\u0446\u0438\u044F", syncing: "\u0421\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0430\u0446\u0438\u044F\u2026", synced: "\u0413\u043E\u0442\u043E\u0432\u043E", syncErr: "\u041E\u0448\u0438\u0431\u043A\u0430", clear: "\u041E\u0447\u0438\u0441\u0442\u0438\u0442\u044C", clearQ: "\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u0432\u0441\u0435 \u0434\u0430\u043D\u043D\u044B\u0435?", next: "\u0414\u0430\u043B\u0435\u0435 \u2192", start: "\u041D\u0430\u0447\u0430\u0442\u044C! \u{1F680}", chooseMode: "\u0420\u0435\u0436\u0438\u043C", chooseModeH: "\u041C\u043E\u0436\u043D\u043E \u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u043F\u043E\u0437\u0436\u0435", chooseDesign: "\u0414\u0438\u0437\u0430\u0439\u043D", chooseDesignH: "\u0414\u0432\u0438\u0433\u0430\u0439\u0442\u0435 \u043F\u043E\u043B\u0437\u0443\u043D\u043E\u043A", chooseCur: "\u0412\u0430\u043B\u044E\u0442\u0430", chooseCurH: "\u041C\u043E\u0436\u043D\u043E \u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u043F\u043E\u0437\u0436\u0435", lite: "Lite", liteH: "\u041F\u0440\u043E\u0441\u0442\u043E\u0439 \u0443\u0447\u0451\u0442.", pro: "Pro", proH: "\u0410\u043D\u0430\u043B\u0438\u0442\u0438\u043A\u0430, \u0431\u044E\u0434\u0436\u0435\u0442\u044B, \u0446\u0435\u043B\u0438.", trend: "\u0422\u0440\u0435\u043D\u0434", search: "\u041F\u043E\u0438\u0441\u043A\u2026", pickSvc: "\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0441\u0435\u0440\u0432\u0438\u0441", customPh: "\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435\u2026", date: "\u0414\u0430\u0442\u0430", color: "\u0426\u0432\u0435\u0442", budgets: "\u0411\u044E\u0434\u0436\u0435\u0442\u044B", setBudget: "\u0423\u0441\u0442\u0430\u043D\u043E\u0432\u0438\u0442\u044C", spent: "\u043F\u043E\u0442\u0440\u0430\u0447\u0435\u043D\u043E", left: "\u043E\u0441\u0442\u0430\u043B\u043E\u0441\u044C", over: "\u043F\u0440\u0435\u0432\u044B\u0448\u0435\u043D\u0438\u0435", goals: "\u0426\u0435\u043B\u0438", addGoal: "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C", goalPh: "\u041E\u0442\u043F\u0443\u0441\u043A, \u0410\u0432\u0442\u043E\u2026", target: "\u0426\u0435\u043B\u044C", saved: "\u041D\u0430\u043A\u043E\u043F\u043B\u0435\u043D\u043E", addSaving: "\u041F\u043E\u043F\u043E\u043B\u043D\u0438\u0442\u044C", goalDone: "\u0413\u043E\u0442\u043E\u0432\u043E! \u{1F389}", compare: "vs \u043F\u0440\u043E\u0448\u043B\u044B\u0439 \u043C\u0435\u0441", avgDaily: "\u0421\u0440. \u0432 \u0434\u0435\u043D\u044C", noData: "\u041C\u0430\u043B\u043E \u0434\u0430\u043D\u043D\u044B\u0445", dueToday: "\u0421\u0435\u0433\u043E\u0434\u043D\u044F", tomorrow: "\u0417\u0430\u0432\u0442\u0440\u0430", inDays: "\u0447\u0435\u0440\u0435\u0437 %d \u0434\u043D", more: "\u0415\u0449\u0451", txCurrency: "\u0412\u0430\u043B\u044E\u0442\u0430 \u043E\u043F\u0435\u0440\u0430\u0446\u0438\u0438" }
+  };
+  const Ic = { Home: () => /* @__PURE__ */ React.createElement("svg", { width: "22", height: "22", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round", viewBox: "0 0 24 24" }, /* @__PURE__ */ React.createElement("path", { d: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1h-2z" })), List: () => /* @__PURE__ */ React.createElement("svg", { width: "22", height: "22", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", viewBox: "0 0 24 24" }, /* @__PURE__ */ React.createElement("path", { d: "M4 6h16M4 12h16M4 18h12" })), Rep: () => /* @__PURE__ */ React.createElement("svg", { width: "22", height: "22", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round", viewBox: "0 0 24 24" }, /* @__PURE__ */ React.createElement("path", { d: "M17 1l4 4-4 4M3 11V9a4 4 0 014-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 01-4 4H3" })), Chart: () => /* @__PURE__ */ React.createElement("svg", { width: "22", height: "22", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", viewBox: "0 0 24 24" }, /* @__PURE__ */ React.createElement("path", { d: "M18 20V10M12 20V4M6 20v-6" })), Gear: () => /* @__PURE__ */ React.createElement("svg", { width: "22", height: "22", fill: "none", stroke: "currentColor", strokeWidth: "1.8", viewBox: "0 0 24 24" }, /* @__PURE__ */ React.createElement("circle", { cx: "12", cy: "12", r: "3" }), /* @__PURE__ */ React.createElement("path", { d: "M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" })), Plus: () => /* @__PURE__ */ React.createElement("svg", { width: "26", height: "26", fill: "none", stroke: "currentColor", strokeWidth: "2.2", strokeLinecap: "round", viewBox: "0 0 24 24" }, /* @__PURE__ */ React.createElement("path", { d: "M12 5v14M5 12h14" })), X: () => /* @__PURE__ */ React.createElement("svg", { width: "18", height: "18", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", viewBox: "0 0 24 24" }, /* @__PURE__ */ React.createElement("path", { d: "M18 6L6 18M6 6l12 12" })), Srch: () => /* @__PURE__ */ React.createElement("svg", { width: "17", height: "17", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", viewBox: "0 0 24 24" }, /* @__PURE__ */ React.createElement("circle", { cx: "11", cy: "11", r: "8" }), /* @__PURE__ */ React.createElement("path", { d: "M21 21l-4.35-4.35" })), Chev: () => /* @__PURE__ */ React.createElement("svg", { width: "14", height: "14", fill: "none", stroke: "currentColor", strokeWidth: "2.5", strokeLinecap: "round", viewBox: "0 0 24 24" }, /* @__PURE__ */ React.createElement("path", { d: "M9 18l6-6-6-6" })), Cloud: () => /* @__PURE__ */ React.createElement("svg", { width: "16", height: "16", fill: "none", stroke: "currentColor", strokeWidth: "1.8", viewBox: "0 0 24 24" }, /* @__PURE__ */ React.createElement("path", { d: "M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z" })), Trash: () => /* @__PURE__ */ React.createElement("svg", { width: "15", height: "15", fill: "none", stroke: "currentColor", strokeWidth: "1.8", viewBox: "0 0 24 24" }, /* @__PURE__ */ React.createElement("path", { d: "M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" })), Check: () => /* @__PURE__ */ React.createElement("svg", { width: "16", height: "16", fill: "none", stroke: "currentColor", strokeWidth: "2.5", strokeLinecap: "round", strokeLinejoin: "round", viewBox: "0 0 24 24" }, /* @__PURE__ */ React.createElement("path", { d: "M20 6L9 17l-5-5" })) };
+  const CSS = () => /* @__PURE__ */ React.createElement("style", null, `@import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}html,body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:var(--text);overflow:hidden;height:100%;overscroll-behavior:none}input,textarea,select,button{font-family:inherit}
+.app{display:flex;flex-direction:column;height:100dvh;max-width:430px;margin:0 auto;position:relative}
+.scr{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding-bottom:calc(90px + env(safe-area-inset-bottom,0px));position:relative;z-index:1}.scr::-webkit-scrollbar{display:none}
+.tb{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;display:flex;align-items:center;justify-content:space-around;padding:6px 0 calc(6px + env(safe-area-inset-bottom,0px));background:var(--tbg);border-top:.5px solid var(--brd);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);z-index:100;transition:all .5s}
+.ti{display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 10px;background:none;border:none;color:var(--t3);cursor:pointer;transition:color .25s;font-size:10px;font-weight:500}.ti.a{color:var(--acc)}
+.fab{width:48px;height:48px;border-radius:var(--fabrad);background:var(--acc);border:none;color:white;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 4px 16px rgba(var(--accR),.3);margin-top:-12px;transition:all .2s}.fab:active{transform:scale(.9)}
+.cd{background:var(--card);border-radius:var(--rad);padding:var(--cardpad);box-shadow:var(--shd);border:1px solid var(--cbrd);backdrop-filter:blur(var(--blur));-webkit-backdrop-filter:blur(var(--blur));transition:all .4s}
+.sho{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:200;opacity:0;transition:opacity .3s;pointer-events:none}.sho.op{opacity:1;pointer-events:auto}
+.sh{position:fixed;bottom:0;left:50%;transform:translateX(-50%) translateY(100%);width:100%;max-width:430px;max-height:92dvh;background:var(--sbg);border-radius:20px 20px 0 0;z-index:201;transition:transform .38s cubic-bezier(.32,.72,0,1),background .5s;overflow-y:auto;padding-bottom:calc(20px + env(safe-area-inset-bottom,0px));backdrop-filter:blur(20px)}
+.sho.op .sh{transform:translateX(-50%) translateY(0)}.shh{width:36px;height:5px;background:var(--t3);border-radius:3px;margin:10px auto 6px;opacity:.4}
+.shd{display:flex;align-items:center;justify-content:space-between;padding:8px 20px 14px;border-bottom:.5px solid var(--brd);position:sticky;top:0;background:var(--sbg);z-index:1;backdrop-filter:blur(20px)}.shd h2{font-size:17px;font-weight:600}.shb{padding:20px;display:flex;flex-direction:column;gap:20px}
+.pill{display:flex;background:var(--bg2);border-radius:10px;padding:3px;gap:2px;transition:background .5s}
+.po{flex:1;padding:8px 4px;border:none;background:none;border-radius:8px;font-size:13px;font-weight:600;color:var(--t2);cursor:pointer;transition:all .2s;text-align:center;white-space:nowrap}.po.a{background:var(--card);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.06)}.po.re.a{background:var(--redB);color:var(--red)}.po.gr.a{background:var(--grnB);color:var(--grn)}
+.fl{font-size:11px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px}
+.fi{width:100%;padding:12px 14px;background:var(--bg2);border:1.5px solid transparent;border-radius:var(--rads);font-size:16px;color:var(--text);outline:none;transition:border-color .2s,background .5s}.fi:focus{border-color:var(--acc)}.fi::placeholder{color:var(--t3)}
+.ai{font-size:36px;font-weight:800;text-align:center;letter-spacing:-1.5px;background:none;border:none;padding:14px 0;width:100%}.ai.exp{color:var(--red)}.ai.inc{color:var(--grn)}
+.cg{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.ci{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 4px;border-radius:var(--rads);border:2px solid transparent;cursor:pointer;transition:all .15s;background:var(--bg2)}.ci:active{transform:scale(.94)}.ci.sel{border-color:var(--acc);background:var(--accB)}.ci .ce{font-size:22px}.ci .cn{font-size:10px;font-weight:500;color:var(--t2);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.sg{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.si{display:flex;flex-direction:column;align-items:center;gap:5px;padding:12px 6px;border-radius:var(--rads);border:2px solid transparent;cursor:pointer;transition:all .15s;background:var(--bg2)}.si:active{transform:scale(.94)}.si.sel{border-color:var(--acc);background:var(--accB)}.si .sl{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:20px}.si .sn{font-size:10px;font-weight:600;color:var(--t2);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.tr{display:flex;align-items:center;gap:12px;padding:12px 0;cursor:pointer;transition:background .15s}.tr:active{background:var(--bg2);border-radius:var(--rads);margin:0 -8px;padding:12px 8px}
+.tic{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.tc{font-size:14.5px;font-weight:500}.tn{font-size:12px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ta{font-size:15px;font-weight:600;text-align:right;white-space:nowrap}.ta.exp{color:var(--red)}.ta.inc{color:var(--grn)}
+.btn{width:100%;padding:15px;border-radius:var(--rad);background:var(--acc);color:white;font-size:16px;font-weight:600;border:none;cursor:pointer;transition:opacity .15s,transform .1s}.btn:active{opacity:.85;transform:scale(.98)}.btn:disabled{opacity:.45}.btn.dng{background:var(--red)}
+.bdg{display:inline-flex;align-items:center;gap:3px;padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600}.bg{background:var(--grnB);color:var(--grn)}.bo{background:rgba(255,149,0,.1);color:var(--org)}.by{background:var(--bg2);color:var(--t2)}
+.pb{height:6px;background:var(--bg2);border-radius:3px;overflow:hidden}.pf{height:100%;border-radius:3px;transition:width .5s}
+.sr{display:flex;align-items:center;gap:8px;background:var(--bg2);border-radius:var(--rads);padding:10px 14px}.sr input{flex:1;border:none;background:none;font-size:15px;color:var(--text);outline:none}.sr input::placeholder{color:var(--t3)}
+.dgh{font-size:12px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;padding:14px 0 4px}
+.empty{display:flex;flex-direction:column;align-items:center;padding:40px 20px;gap:8px}.empty .ei{font-size:44px;opacity:.35}.empty .et{font-size:15px;font-weight:600;color:var(--t2)}.empty .eh{font-size:13px;color:var(--t3)}
+.strow{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:.5px solid var(--brd)}.strow:last-child{border:none}
+select.fi{appearance:none;-webkit-appearance:none;padding-right:32px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%238E8E93' stroke-width='2'%3E%3Cpath d='M2 4l4 4 4-4'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center}
+@keyframes fu{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}.an{animation:fu .35s ease-out both}
+.tst{width:100%;height:48px;position:relative;margin:16px 0 6px}.tsi{-webkit-appearance:none;appearance:none;width:100%;height:48px;background:transparent;outline:none;position:absolute;top:0;left:0;z-index:2;cursor:pointer}.tsi::-webkit-slider-thumb{-webkit-appearance:none;width:26px;height:26px;border-radius:50%;background:var(--acc);border:3px solid white;box-shadow:0 2px 12px rgba(0,0,0,.25);cursor:grab}.tsi::-webkit-slider-thumb:active{transform:scale(1.15)}
+.tdo{position:absolute;top:0;left:0;right:0;height:48px;display:flex;align-items:center;justify-content:space-between;padding:0 2px;pointer-events:none}.td{width:7px;height:7px;border-radius:50%;background:var(--t3);transition:all .3s}.td.ac{width:11px;height:11px;background:var(--acc)}
+.gbar{height:10px;background:var(--bg2);border-radius:5px;overflow:hidden}.gfill{height:100%;border-radius:5px;transition:width .6s}
+
+/* \u2500\u2500 Theme-specific UI overrides \u2500\u2500 */
+/* CYBER: angular cuts, glow effects */
+.ui-cyber .cd{clip-path:polygon(0 0,calc(100% - 12px) 0,100% 12px,100% 100%,12px 100%,0 calc(100% - 12px));border:1px solid rgba(0,255,170,.12)}
+.ui-cyber .fab{border-radius:8px;clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,8px 100%,0 calc(100% - 8px))}
+.ui-cyber .tb{border-top:1px solid rgba(0,255,170,.15)}
+.ui-cyber .pill{border-radius:4px}.ui-cyber .po{border-radius:3px}
+.ui-cyber .fi{border-radius:3px}.ui-cyber h1{text-transform:uppercase;letter-spacing:2px;font-size:20px!important}
+.ui-cyber .bdg{border-radius:3px}
+.ui-cyber .cd::after{content:'';position:absolute;top:0;right:12px;width:1px;height:12px;background:rgba(0,255,170,.2)}
+/* SAKURA / UNIQLO: Japanese minimalism \u2014 flat, editorial, red accent line, no rounded corners, thin typography */
+.ui-sakura .cd{border-radius:2px;box-shadow:none;border:none;border-left:3px solid rgba(196,30,58,0.15);padding:20px}
+.ui-sakura .fab{border-radius:2px;box-shadow:0 2px 8px rgba(196,30,58,0.2)}
+.ui-sakura .tb{border-top:2px solid rgba(196,30,58,0.12);backdrop-filter:blur(16px)}
+.ui-sakura h1{font-weight:300!important;font-size:20px!important;text-transform:uppercase;letter-spacing:3px!important}
+.ui-sakura .pill{border-radius:0;border:1px solid rgba(196,30,58,0.1);background:transparent}.ui-sakura .po{border-radius:0;font-weight:400;letter-spacing:1px;text-transform:uppercase;font-size:11px!important}
+.ui-sakura .po.a{background:rgba(196,30,58,0.06);box-shadow:none;border-bottom:2px solid var(--acc)}
+.ui-sakura .fi{border-radius:0;border:none;border-bottom:1px solid rgba(196,30,58,0.15);background:transparent;padding:12px 0}
+.ui-sakura .fi:focus{border-bottom-color:var(--acc)}
+.ui-sakura .tic{border-radius:2px}
+.ui-sakura .btn{border-radius:0;text-transform:uppercase;letter-spacing:2px;font-weight:500;font-size:13px!important;padding:16px}
+.ui-sakura .btn.dng{background:transparent;color:var(--red);border:1px solid var(--red)}
+.ui-sakura .bdg{border-radius:0;border:1px solid currentColor;background:transparent!important}
+.ui-sakura .sr{border-radius:0;background:transparent;border-bottom:1px solid rgba(196,30,58,0.1)}
+.ui-sakura .pb{border-radius:0;height:3px}.ui-sakura .pf{border-radius:0}
+.ui-sakura .ci{border-radius:2px;border-width:1px}.ui-sakura .si{border-radius:2px;border-width:1px}
+.ui-sakura .dgh{letter-spacing:2px;font-size:10px!important;font-weight:400;border-bottom:1px solid rgba(196,30,58,0.06);padding-bottom:8px}
+.ui-sakura .sh{border-radius:0}
+.ui-sakura .shd{border-bottom:2px solid rgba(196,30,58,0.08)}
+.ui-sakura .strow{border-bottom-color:rgba(196,30,58,0.06)}
+.ui-sakura .tr:active{background:rgba(196,30,58,0.03);border-radius:0;margin:0 -20px;padding:12px 20px}
+.ui-sakura .gbar{border-radius:0;height:3px}.ui-sakura .gfill{border-radius:0}
+.ui-sakura .empty .ei{opacity:.2}
+/* GLASS: large radius, heavy blur effect */
+.ui-glass .cd{box-shadow:0 8px 32px rgba(0,0,0,0.2),inset 0 1px 0 rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08)}
+.ui-glass .tb{border-top:1px solid rgba(255,255,255,0.06)}
+.ui-glass .fab{box-shadow:0 4px 24px rgba(123,104,238,0.35)}
+/* CARBON: minimal, sharp */
+.ui-carbon .cd{border-radius:10px;box-shadow:none;border:1px solid rgba(255,255,255,0.04)}
+.ui-carbon .fab{border-radius:10px}
+.ui-carbon .pill{border-radius:6px}.ui-carbon .po{border-radius:4px}
+.ui-carbon h1{letter-spacing:-0.5px}
+`);
+  function Sheet({ open, onClose, title, children, right }) {
+    return /* @__PURE__ */ React.createElement("div", { className: `sho ${open ? "op" : ""}`, onClick: onClose }, /* @__PURE__ */ React.createElement("div", { className: "sh", onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("div", { className: "shh" }), /* @__PURE__ */ React.createElement("div", { className: "shd" }, /* @__PURE__ */ React.createElement("button", { style: { background: "none", border: "none", color: "var(--acc)", fontSize: 15, fontWeight: 500, cursor: "pointer" }, onClick: onClose }, "\u2715"), /* @__PURE__ */ React.createElement("h2", null, title), right || /* @__PURE__ */ React.createElement("div", { style: { width: 50 } })), /* @__PURE__ */ React.createElement("div", { className: "shb" }, children)));
+  }
+  function AddTxSheet({ open, onClose, onSave, edit, cur, t, ln, isPro }) {
+    const [tp, setTp] = useState("expense");
+    const [am, setAm] = useState("");
+    const [cat, setCat] = useState("food");
+    const [note, setNote] = useState("");
+    const [dt, setDt] = useState((/* @__PURE__ */ new Date()).toISOString().slice(0, 10));
+    const [txCur, setTxCur] = useState(cur);
+    const ref = useRef();
+    useEffect(() => {
+      if (open) {
+        if (edit) {
+          setTp(edit.type);
+          setAm(String(edit.amount));
+          setCat(edit.category);
+          setNote(edit.note || "");
+          setDt(edit.date?.slice(0, 10) || (/* @__PURE__ */ new Date()).toISOString().slice(0, 10));
+          setTxCur(edit.currency || cur);
+        } else {
+          setTp("expense");
+          setAm("");
+          setCat("food");
+          setNote("");
+          setDt((/* @__PURE__ */ new Date()).toISOString().slice(0, 10));
+          setTxCur(cur);
+        }
+        setTimeout(() => ref.current?.focus(), 400);
+      }
+    }, [open, edit, cur]);
+    const cats = tp === "income" ? IC : EC;
+    const save = () => {
+      const v = parseFloat(am);
+      if (!v || v <= 0) return;
+      onSave({ id: edit?.id || uid(), type: tp, amount: v, currency: txCur, category: cat, note: note.trim(), date: new Date(dt).toISOString() });
+      onClose();
+    };
+    return /* @__PURE__ */ React.createElement(Sheet, { open, onClose, title: edit ? t.edit : t.add, right: /* @__PURE__ */ React.createElement("button", { style: { background: "none", border: "none", color: "var(--acc)", fontSize: 15, fontWeight: 600, cursor: "pointer" }, onClick: save }, t.save) }, /* @__PURE__ */ React.createElement("div", { className: "pill" }, /* @__PURE__ */ React.createElement("button", { className: `po re ${tp === "expense" ? "a" : ""}`, onClick: () => {
+      setTp("expense");
+      setCat("food");
+    } }, t.expense), /* @__PURE__ */ React.createElement("button", { className: `po gr ${tp === "income" ? "a" : ""}`, onClick: () => {
+      setTp("income");
+      setCat("salary");
+    } }, t.incomeType)), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center" } }, /* @__PURE__ */ React.createElement("input", { ref, className: `ai ${tp === "expense" ? "exp" : "inc"}`, type: "number", inputMode: "decimal", placeholder: "0", value: am, onChange: (e) => setAm(e.target.value) })), isPro && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "fl" }, t.txCurrency), /* @__PURE__ */ React.createElement("div", { className: "pill", style: { flexWrap: "wrap" } }, CUR.map((c) => /* @__PURE__ */ React.createElement("button", { key: c.c, className: `po ${txCur === c.c ? "a" : ""}`, onClick: () => setTxCur(c.c), style: { flex: "0 0 auto", padding: "6px 10px", fontSize: 12 } }, c.s, " ", c.c)))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "fl" }, t.category), /* @__PURE__ */ React.createElement("div", { className: "cg" }, cats.map((c) => /* @__PURE__ */ React.createElement("div", { key: c.id, className: `ci ${cat === c.id ? "sel" : ""}`, onClick: () => setCat(c.id) }, /* @__PURE__ */ React.createElement("span", { className: "ce" }, c.i), /* @__PURE__ */ React.createElement("span", { className: "cn" }, ln === "ru" ? c.r : c.n))))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "fl" }, t.note), /* @__PURE__ */ React.createElement("input", { className: "fi", placeholder: t.notePh, value: note, onChange: (e) => setNote(e.target.value) })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "fl" }, t.date), /* @__PURE__ */ React.createElement("input", { className: "fi", type: "date", value: dt, onChange: (e) => setDt(e.target.value) })), edit && /* @__PURE__ */ React.createElement("button", { className: "btn dng", onClick: () => {
+      onSave(null);
+      onClose();
+    } }, t.delete));
+  }
+  function AddSubSheet({ open, onClose, onSave, edit, cur, t, ln }) {
+    const [svc, setSvc] = useState(null);
+    const [am, setAm] = useState("");
+    const [cy, setCy] = useState("monthly");
+    const [nd, setNd] = useState((/* @__PURE__ */ new Date()).toISOString().slice(0, 10));
+    const [customName, setCustomName] = useState("");
+    const [col, setCol] = useState("#007AFF");
+    const colors = ["#007AFF", "#FF3B30", "#34C759", "#FF9500", "#AF52DE", "#5856D6", "#FF2D55", "#5AC8FA", "#FFCC00", "#4CD964"];
+    useEffect(() => {
+      if (open && edit) {
+        const sv = SVC.find((s) => s.id === edit.serviceId);
+        setSvc(sv || { id: "custom", name: edit.name, isCustom: true, icon: "\u270F\uFE0F", color: edit.color });
+        setAm(String(edit.amount));
+        setCy(edit.cycle);
+        setNd(edit.nextDate?.slice(0, 10) || "");
+        setCol(edit.color || "#007AFF");
+        setCustomName(edit.name || "");
+      } else if (open) {
+        setSvc(null);
+        setAm("");
+        setCy("monthly");
+        setNd((/* @__PURE__ */ new Date()).toISOString().slice(0, 10));
+        setCol("#007AFF");
+        setCustomName("");
+      }
+    }, [open, edit]);
+    const save = () => {
+      const v = parseFloat(am);
+      if (!v || v <= 0 || !svc) return;
+      const name = svc.isCustom ? customName.trim() : svc.name;
+      if (!name) return;
+      onSave({ id: edit?.id || uid(), serviceId: svc.id, name, amount: v, currency: cur, cycle: cy, category: svc.cat || "other", nextDate: new Date(nd).toISOString(), active: edit?.active ?? true, color: svc.isCustom ? col : svc.color || col, icon: svc.icon || "\u{1F4E6}" });
+      onClose();
+    };
+    return /* @__PURE__ */ React.createElement(Sheet, { open, onClose, title: edit ? t.edit : t.addSub, right: /* @__PURE__ */ React.createElement("button", { style: { background: "none", border: "none", color: "var(--acc)", fontSize: 15, fontWeight: 600, cursor: "pointer" }, onClick: save }, t.save) }, !svc ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "fl" }, t.pickSvc), /* @__PURE__ */ React.createElement("div", { className: "sg" }, SVC.map((s) => /* @__PURE__ */ React.createElement("div", { key: s.id, className: "si", onClick: () => {
+      setSvc(s);
+      if (!s.isCustom) setCol(s.color);
+    } }, /* @__PURE__ */ React.createElement("div", { className: "sl", style: { background: s.color + "15" } }, s.icon), /* @__PURE__ */ React.createElement("span", { className: "sn" }, ln === "ru" && s.nameRu ? s.nameRu : s.name))))) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: "var(--bg2)", borderRadius: "var(--rads)" } }, /* @__PURE__ */ React.createElement("div", { style: { width: 36, height: 36, borderRadius: 10, background: (svc.color || col) + "18", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 } }, svc.icon), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, fontSize: 16, fontWeight: 600 } }, svc.isCustom ? customName || "\u2026" : svc.name), /* @__PURE__ */ React.createElement("button", { style: { background: "none", border: "none", color: "var(--acc)", fontSize: 13, cursor: "pointer" }, onClick: () => setSvc(null) }, "\u21A9")), svc.isCustom && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "fl" }, t.customPh), /* @__PURE__ */ React.createElement("input", { className: "fi", placeholder: t.customPh, value: customName, onChange: (e) => setCustomName(e.target.value) })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "fl" }, t.amount), /* @__PURE__ */ React.createElement("input", { className: "fi", type: "number", inputMode: "decimal", placeholder: "0.00", value: am, onChange: (e) => setAm(e.target.value), style: { fontSize: 22, fontWeight: 700 } })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "fl" }, t.cycle), /* @__PURE__ */ React.createElement("div", { className: "pill" }, BIL.map((c) => /* @__PURE__ */ React.createElement("button", { key: c.id, className: `po ${cy === c.id ? "a" : ""}`, onClick: () => setCy(c.id) }, ln === "ru" ? c.r : c.n)))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "fl" }, t.date), /* @__PURE__ */ React.createElement("input", { className: "fi", type: "date", value: nd, onChange: (e) => setNd(e.target.value) })), svc.isCustom && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "fl" }, t.color), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } }, colors.map((c) => /* @__PURE__ */ React.createElement("div", { key: c, style: { width: 28, height: 28, borderRadius: "50%", background: c, cursor: "pointer", border: col === c ? "3px solid var(--text)" : "3px solid transparent" }, onClick: () => setCol(c) })))), edit && /* @__PURE__ */ React.createElement("button", { className: "btn dng", onClick: () => {
+      onSave(null);
+      onClose();
+    } }, t.delete)));
+  }
+  function Dash({ txs, subs, cur, mode, t, ln, onNav }) {
+    const [per, setPer] = useState("month");
+    const ps = pS(per);
+    const flt = txs.filter((x) => new Date(x.date) >= ps);
+    const inc = flt.filter((x) => x.type === "income").reduce((s, x) => s + convert(x.amount, x.currency || cur, cur), 0);
+    const exp = flt.filter((x) => x.type === "expense").reduce((s, x) => s + convert(x.amount, x.currency || cur, cur), 0);
+    const bal = inc - exp;
+    const byCat = useMemo(() => {
+      const m = {};
+      flt.filter((x) => x.type === "expense").forEach((x) => {
+        const a = convert(x.amount, x.currency || cur, cur);
+        m[x.category] = (m[x.category] || 0) + a;
+      });
+      return Object.entries(m).sort((a, b) => b[1] - a[1]).map(([c, a], i) => ({ c, a, m: catM(c, "expense", ln), col: CC[i % CC.length] }));
+    }, [flt, ln, cur]);
+    const chart = byCat.map((e) => ({ name: e.m.lb, value: e.a, fill: e.col }));
+    const mSubs = subs.filter((s) => s.active).reduce((sum, s) => {
+      const c = BIL.find((x) => x.id === s.cycle);
+      return sum + convert(s.amount, s.currency || cur, cur) / (c?.m || 1);
+    }, 0);
+    const recent = [...txs].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5);
+    return /* @__PURE__ */ React.createElement("div", { className: "scr" }, /* @__PURE__ */ React.createElement("div", { style: { padding: "16px 20px 0" } }, /* @__PURE__ */ React.createElement("h1", { style: { fontSize: "var(--hdsz)", fontWeight: "var(--hdw)", fontFamily: "var(--hdfont)", letterSpacing: -0.8, marginBottom: 16 } }, t.dashboard), /* @__PURE__ */ React.createElement("div", { className: "pill", style: { marginBottom: 18 } }, ["week", "month", "year", "all"].map((p) => /* @__PURE__ */ React.createElement("button", { key: p, className: `po ${per === p ? "a" : ""}`, onClick: () => setPer(p) }, t[p]))), /* @__PURE__ */ React.createElement("div", { className: "cd an", style: { textAlign: "center", marginBottom: 12 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--t2)", fontWeight: 600, letterSpacing: 0.5 } }, t.balance.toUpperCase()), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 40, fontWeight: 800, letterSpacing: -2, color: bal >= 0 ? "var(--grn)" : "var(--red)" } }, fmtSgn(bal, cur))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 10, marginBottom: 18 } }, /* @__PURE__ */ React.createElement("div", { className: "cd an", style: { flex: 1, animationDelay: ".05s" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--t2)", fontWeight: 600, marginBottom: 4 } }, "\u2193 ", t.income.toUpperCase()), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 20, fontWeight: 700 } }, fmtA(inc, cur))), /* @__PURE__ */ React.createElement("div", { className: "cd an", style: { flex: 1, animationDelay: ".1s" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--t2)", fontWeight: 600, marginBottom: 4 } }, "\u2191 ", t.expenses.toUpperCase()), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 20, fontWeight: 700 } }, fmtA(exp, cur)))), subs.filter((s) => s.active).length > 0 && /* @__PURE__ */ React.createElement("div", { className: "cd an", style: { marginBottom: 18, animationDelay: ".15s" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginBottom: 10 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 15, fontWeight: 700 } }, t.subscriptions), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 13, color: "var(--t2)", fontWeight: 500 } }, fmtA(mSubs, cur), "/", ln === "ru" ? "\u043C\u0435\u0441" : "mo")), subs.filter((s) => s.active).slice(0, 3).map((s) => {
+      const d = dTo(s.nextDate);
+      return /* @__PURE__ */ React.createElement("div", { key: s.id, style: { display: "flex", alignItems: "center", gap: 10, padding: "5px 0" } }, /* @__PURE__ */ React.createElement("div", { style: { width: 24, height: 24, borderRadius: 6, background: (s.color || "#007AFF") + "18", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13 } }, s.icon || "\u{1F4E6}"), /* @__PURE__ */ React.createElement("span", { style: { flex: 1, fontSize: 13, fontWeight: 500 } }, s.name), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 13, fontWeight: 600 } }, fmtA(s.amount, s.currency || cur)), d <= 7 && d >= 0 && /* @__PURE__ */ React.createElement("span", { className: "bdg bo" }, d === 0 ? t.dueToday : d === 1 ? t.tomorrow : t.inDays.replace("%d", d)));
+    })), byCat.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "cd an", style: { marginBottom: 18, animationDelay: ".2s" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 15, fontWeight: 700, marginBottom: 12 } }, t.topCat), chart.length > 2 && /* @__PURE__ */ React.createElement("div", { style: { height: 150, marginBottom: 10 } }, /* @__PURE__ */ React.createElement(ResponsiveContainer, { width: "100%", height: "100%" }, /* @__PURE__ */ React.createElement(PieChart, null, /* @__PURE__ */ React.createElement(Pie, { data: chart, cx: "50%", cy: "50%", innerRadius: 40, outerRadius: 68, paddingAngle: 2, dataKey: "value", stroke: "none" }, chart.map((e, i) => /* @__PURE__ */ React.createElement(Cell, { key: i, fill: e.fill }))), /* @__PURE__ */ React.createElement(Tooltip, { formatter: (v) => fmtA(v, cur), contentStyle: { borderRadius: 10, border: "none", background: "var(--card)", color: "var(--text)", fontSize: 12 } })))), byCat.slice(0, 5).map((e) => /* @__PURE__ */ React.createElement("div", { key: e.c, style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 } }, /* @__PURE__ */ React.createElement("div", { style: { width: 28, height: 28, borderRadius: 8, background: e.col + "18", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 } }, e.m.i), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 13, fontWeight: 500, width: 65, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, e.m.lb), /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }, /* @__PURE__ */ React.createElement("div", { className: "pb" }, /* @__PURE__ */ React.createElement("div", { className: "pf", style: { width: `${e.a / (byCat[0]?.a || 1) * 100}%`, background: e.col } }))), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 12, color: "var(--t2)", fontWeight: 500, width: 55, textAlign: "right" } }, fmtA(e.a, cur))))), /* @__PURE__ */ React.createElement("div", { className: "cd an", style: { marginBottom: 18, animationDelay: ".25s" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginBottom: 10 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 15, fontWeight: 700 } }, t.recent), /* @__PURE__ */ React.createElement("a", { style: { fontSize: 13, color: "var(--acc)", fontWeight: 500, cursor: "pointer" }, onClick: () => onNav("tx") }, t.seeAll)), recent.length === 0 ? /* @__PURE__ */ React.createElement("div", { className: "empty" }, /* @__PURE__ */ React.createElement("div", { className: "ei" }, "\u{1F4ED}"), /* @__PURE__ */ React.createElement("div", { className: "et" }, t.noTx), /* @__PURE__ */ React.createElement("div", { className: "eh" }, t.noTxH)) : recent.map((tx) => {
+      const m = catM(tx.category, tx.type, ln);
+      const showCur = tx.currency && tx.currency !== cur;
+      return /* @__PURE__ */ React.createElement("div", { key: tx.id, className: "tr" }, /* @__PURE__ */ React.createElement("div", { className: "tic", style: { background: tx.type === "expense" ? "var(--redB)" : "var(--grnB)" } }, m.i), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { className: "tc" }, m.lb), /* @__PURE__ */ React.createElement("div", { className: "tn" }, tx.note || fmtD(tx.date, ln))), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "right" } }, /* @__PURE__ */ React.createElement("div", { className: `ta ${tx.type === "expense" ? "exp" : "inc"}` }, tx.type === "expense" ? "\u2212" : "+", fmtA(tx.amount, tx.currency || cur)), showCur && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: "var(--t3)" } }, "\u2248 ", fmtA(convert(tx.amount, tx.currency, cur), cur))));
+    }))));
+  }
+  function TxView({ txs, cur, onEdit, t, ln }) {
+    const [q, setQ] = useState("");
+    const [ft, setFt] = useState(null);
+    const list = useMemo(() => {
+      let l = [...txs];
+      if (ft) l = l.filter((x) => x.type === ft);
+      if (q.trim()) {
+        const s = q.toLowerCase();
+        l = l.filter((x) => (x.note || "").toLowerCase().includes(s) || catM(x.category, x.type, ln).lb.toLowerCase().includes(s));
+      }
+      return l.sort((a, b) => new Date(b.date) - new Date(a.date));
+    }, [txs, q, ft, ln]);
+    const groups = useMemo(() => {
+      const g = {};
+      list.forEach((x) => {
+        const k = new Date(x.date).toDateString();
+        (g[k] = g[k] || []).push(x);
+      });
+      return Object.entries(g).sort(([a], [b]) => new Date(b) - new Date(a)).map(([k, items]) => ({ k, items }));
+    }, [list]);
+    return /* @__PURE__ */ React.createElement("div", { className: "scr" }, /* @__PURE__ */ React.createElement("div", { style: { padding: "16px 20px 0" } }, /* @__PURE__ */ React.createElement("h1", { style: { fontSize: "var(--hdsz)", fontWeight: "var(--hdw)", letterSpacing: -0.8, marginBottom: 16 } }, t.transactions), /* @__PURE__ */ React.createElement("div", { className: "sr", style: { marginBottom: 12 } }, /* @__PURE__ */ React.createElement(Ic.Srch, null), /* @__PURE__ */ React.createElement("input", { placeholder: t.search, value: q, onChange: (e) => setQ(e.target.value) }), q && /* @__PURE__ */ React.createElement("button", { style: { background: "none", border: "none", cursor: "pointer", color: "var(--t2)" }, onClick: () => setQ("") }, /* @__PURE__ */ React.createElement(Ic.X, null))), /* @__PURE__ */ React.createElement("div", { className: "pill", style: { marginBottom: 14 } }, /* @__PURE__ */ React.createElement("button", { className: `po ${!ft ? "a" : ""}`, onClick: () => setFt(null) }, t.all), /* @__PURE__ */ React.createElement("button", { className: `po re ${ft === "expense" ? "a" : ""}`, onClick: () => setFt("expense") }, t.expenses), /* @__PURE__ */ React.createElement("button", { className: `po gr ${ft === "income" ? "a" : ""}`, onClick: () => setFt("income") }, t.incomeType)), groups.length === 0 ? /* @__PURE__ */ React.createElement("div", { className: "empty", style: { marginTop: 30 } }, /* @__PURE__ */ React.createElement("div", { className: "ei" }, "\u{1F4ED}"), /* @__PURE__ */ React.createElement("div", { className: "et" }, t.noTx)) : groups.map((g) => /* @__PURE__ */ React.createElement("div", { key: g.k }, /* @__PURE__ */ React.createElement("div", { className: "dgh" }, fmtD(g.items[0].date, ln)), /* @__PURE__ */ React.createElement("div", { className: "cd", style: { marginBottom: 10 } }, g.items.map((tx, i) => {
+      const m = catM(tx.category, tx.type, ln);
+      return /* @__PURE__ */ React.createElement("div", { key: tx.id, onClick: () => onEdit(tx) }, /* @__PURE__ */ React.createElement("div", { className: "tr" }, /* @__PURE__ */ React.createElement("div", { className: "tic", style: { background: tx.type === "expense" ? "var(--redB)" : "var(--grnB)" } }, m.i), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { className: "tc" }, m.lb), /* @__PURE__ */ React.createElement("div", { className: "tn" }, tx.note || "")), /* @__PURE__ */ React.createElement("div", { className: `ta ${tx.type === "expense" ? "exp" : "inc"}` }, tx.type === "expense" ? "\u2212" : "+", fmtA(tx.amount, tx.currency || cur))), i < g.items.length - 1 && /* @__PURE__ */ React.createElement("div", { style: { borderBottom: ".5px solid var(--brd)", marginLeft: 50 } }));
+    }))))));
+  }
+  function SubsView({ subs, cur, onEdit, onToggle, t, ln }) {
+    const active = subs.filter((s) => s.active).sort((a, b) => new Date(a.nextDate) - new Date(b.nextDate));
+    const paused = subs.filter((s) => !s.active);
+    const mt = active.reduce((s, sub) => {
+      const c = BIL.find((x) => x.id === sub.cycle);
+      return s + convert(sub.amount, sub.currency || cur, cur) / (c?.m || 1);
+    }, 0);
+    return /* @__PURE__ */ React.createElement("div", { className: "scr" }, /* @__PURE__ */ React.createElement("div", { style: { padding: "16px 20px 0" } }, /* @__PURE__ */ React.createElement("h1", { style: { fontSize: "var(--hdsz)", fontWeight: "var(--hdw)", letterSpacing: -0.8, marginBottom: 16 } }, t.subscriptions), /* @__PURE__ */ React.createElement("div", { className: "cd an", style: { textAlign: "center", marginBottom: 18 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--t2)", fontWeight: 600 } }, t.moTotal.toUpperCase()), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 38, fontWeight: 800, letterSpacing: -2 } }, fmtA(mt, cur)), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--t3)" } }, fmtA(mt * 12, cur), " ", t.yrEst)), active.length === 0 && paused.length === 0 ? /* @__PURE__ */ React.createElement("div", { className: "empty" }, /* @__PURE__ */ React.createElement("div", { className: "ei" }, "\u{1F501}"), /* @__PURE__ */ React.createElement("div", { className: "et" }, ln === "ru" ? "\u041D\u0435\u0442 \u043F\u043E\u0434\u043F\u0438\u0441\u043E\u043A" : "No subscriptions")) : /* @__PURE__ */ React.createElement(React.Fragment, null, active.length > 0 && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 15, fontWeight: 700, marginBottom: 10 } }, t.active), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 10, marginBottom: 18 } }, active.map((s) => {
+      const d = dTo(s.nextDate);
+      const cm = BIL.find((c) => c.id === s.cycle);
+      return /* @__PURE__ */ React.createElement("div", { key: s.id, className: "cd", style: { display: "flex", alignItems: "center", gap: 12, borderLeft: `4px solid ${s.color}`, cursor: "pointer" }, onClick: () => onEdit(s) }, /* @__PURE__ */ React.createElement("div", { style: { width: 36, height: 36, borderRadius: 10, background: (s.color || "#007AFF") + "18", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 } }, s.icon || "\u{1F4E6}"), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 14, fontWeight: 600 } }, s.name), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--t2)" } }, ln === "ru" ? cm?.r : cm?.n, d <= 7 && d >= 0 && /* @__PURE__ */ React.createElement("span", { style: { color: "var(--org)", marginLeft: 4 } }, "\xB7 ", d === 0 ? t.dueToday : d === 1 ? t.tomorrow : t.inDays.replace("%d", d)))), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 14, fontWeight: 600 } }, fmtA(s.amount, s.currency || cur)), /* @__PURE__ */ React.createElement(Ic.Chev, null));
+    }))), paused.length > 0 && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 14, fontWeight: 600, color: "var(--t2)", marginBottom: 8 } }, t.paused), paused.map((s) => /* @__PURE__ */ React.createElement("div", { key: s.id, style: { display: "flex", alignItems: "center", padding: "10px 0", gap: 10, borderBottom: ".5px solid var(--brd)" } }, /* @__PURE__ */ React.createElement("span", { style: { flex: 1, fontSize: 13, color: "var(--t2)", textDecoration: "line-through" } }, s.name), /* @__PURE__ */ React.createElement("button", { style: { background: "none", border: "none", color: "var(--acc)", fontSize: 12, fontWeight: 500, cursor: "pointer" }, onClick: () => onToggle(s.id) }, t.resume)))))));
+  }
+  function Analytics({ txs, cur, t, ln, budgets, goals, onBud, onGoals }) {
+    const [sec, setSec] = useState("trend");
+    const trend = useMemo(() => {
+      const m = {};
+      txs.forEach((x) => {
+        const d = new Date(x.date), k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+        if (!m[k]) m[k] = { month: k, income: 0, expense: 0 };
+        const a = convert(x.amount, x.currency || cur, cur);
+        if (x.type === "income") m[k].income += a;
+        else m[k].expense += a;
+      });
+      return Object.values(m).sort((a, b) => a.month.localeCompare(b.month)).slice(-6);
+    }, [txs, cur]);
+    const now = /* @__PURE__ */ new Date();
+    const thisM = txs.filter((x) => {
+      const d = new Date(x.date);
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    });
+    const lastM = txs.filter((x) => {
+      const d = new Date(x.date);
+      const lm = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      return d.getMonth() === lm.getMonth() && d.getFullYear() === lm.getFullYear();
+    });
+    const thisExp = thisM.filter((x) => x.type === "expense").reduce((s, x) => s + convert(x.amount, x.currency || cur, cur), 0);
+    const lastExp = lastM.filter((x) => x.type === "expense").reduce((s, x) => s + convert(x.amount, x.currency || cur, cur), 0);
+    const diff = lastExp > 0 ? ((thisExp - lastExp) / lastExp * 100).toFixed(0) : "0";
+    const avgD = now.getDate() > 0 ? thisExp / now.getDate() : 0;
+    const [eCat, setECat] = useState(null);
+    const [bAmt, setBAmt] = useState("");
+    const [showG, setShowG] = useState(false);
+    const [gN, setGN] = useState("");
+    const [gT, setGT] = useState("");
+    const [aGId, setAGId] = useState(null);
+    const [aAmt, setAAmt] = useState("");
+    return /* @__PURE__ */ React.createElement("div", { className: "scr" }, /* @__PURE__ */ React.createElement("div", { style: { padding: "16px 20px 0" } }, /* @__PURE__ */ React.createElement("h1", { style: { fontSize: "var(--hdsz)", fontWeight: "var(--hdw)", letterSpacing: -0.8, marginBottom: 16 } }, t.analytics), /* @__PURE__ */ React.createElement("div", { className: "pill", style: { marginBottom: 18 } }, /* @__PURE__ */ React.createElement("button", { className: `po ${sec === "trend" ? "a" : ""}`, onClick: () => setSec("trend") }, "\u{1F4CA} ", t.trend), /* @__PURE__ */ React.createElement("button", { className: `po ${sec === "budgets" ? "a" : ""}`, onClick: () => setSec("budgets") }, "\u{1F4B0} ", t.budgets), /* @__PURE__ */ React.createElement("button", { className: `po ${sec === "goals" ? "a" : ""}`, onClick: () => setSec("goals") }, "\u{1F3AF} ", t.goals)), sec === "trend" && /* @__PURE__ */ React.createElement(React.Fragment, null, trend.length > 1 ? /* @__PURE__ */ React.createElement("div", { className: "cd an", style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 14, fontWeight: 700, marginBottom: 12 } }, t.trend), /* @__PURE__ */ React.createElement("div", { style: { height: 180 } }, /* @__PURE__ */ React.createElement(ResponsiveContainer, { width: "100%", height: "100%" }, /* @__PURE__ */ React.createElement(BarChart, { data: trend, barGap: 2 }, /* @__PURE__ */ React.createElement(CartesianGrid, { strokeDasharray: "3 3", stroke: "var(--brd)" }), /* @__PURE__ */ React.createElement(XAxis, { dataKey: "month", tick: { fontSize: 10, fill: "var(--t2)" }, tickFormatter: (v) => v.split("-")[1] }), /* @__PURE__ */ React.createElement(YAxis, { hide: true }), /* @__PURE__ */ React.createElement(Tooltip, { contentStyle: { borderRadius: 10, border: "none", background: "var(--card)", color: "var(--text)", fontSize: 12 }, formatter: (v) => fmtA(v, cur) }), /* @__PURE__ */ React.createElement(Bar, { dataKey: "income", fill: "var(--grn)", radius: [4, 4, 0, 0] }), /* @__PURE__ */ React.createElement(Bar, { dataKey: "expense", fill: "var(--red)", radius: [4, 4, 0, 0] }))))) : /* @__PURE__ */ React.createElement("div", { className: "cd", style: { textAlign: "center", padding: 30, color: "var(--t2)" } }, t.noData), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 10, marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", { className: "cd an", style: { flex: 1, textAlign: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--t2)", fontWeight: 600, marginBottom: 4 } }, t.compare), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 22, fontWeight: 700, color: Number(diff) > 0 ? "var(--red)" : "var(--grn)" } }, Number(diff) > 0 ? "+" : "", diff, "%")), /* @__PURE__ */ React.createElement("div", { className: "cd an", style: { flex: 1, textAlign: "center", animationDelay: ".05s" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--t2)", fontWeight: 600, marginBottom: 4 } }, t.avgDaily), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 22, fontWeight: 700 } }, fmtA(avgD, cur))))), sec === "budgets" && /* @__PURE__ */ React.createElement(React.Fragment, null, EC.slice(0, 10).map((cat) => {
+      const lim = budgets[cat.id] || 0;
+      const sp = thisM.filter((x) => x.type === "expense" && x.category === cat.id).reduce((s, x) => s + convert(x.amount, x.currency || cur, cur), 0);
+      const pct = lim > 0 ? Math.min(sp / lim * 100, 100) : 0;
+      const ov = lim > 0 && sp > lim;
+      return /* @__PURE__ */ React.createElement("div", { key: cat.id, className: "cd", style: { marginBottom: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 18 } }, cat.i), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 14, fontWeight: 500 } }, ln === "ru" ? cat.r : cat.n)), lim > 0 ? /* @__PURE__ */ React.createElement("span", { style: { fontSize: 12, color: ov ? "var(--red)" : "var(--t2)", fontWeight: 500 } }, fmtA(sp, cur), " / ", fmtA(lim, cur)) : /* @__PURE__ */ React.createElement("button", { style: { background: "none", border: "none", color: "var(--acc)", fontSize: 12, fontWeight: 500, cursor: "pointer" }, onClick: () => {
+        setECat(cat.id);
+        setBAmt("");
+      } }, t.setBudget)), lim > 0 && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "pb", style: { height: 8, marginBottom: 4 } }, /* @__PURE__ */ React.createElement("div", { className: "pf", style: { width: `${pct}%`, background: ov ? "var(--red)" : "var(--acc)" } })), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: ov ? "var(--red)" : "var(--grn)", fontWeight: 500 } }, ov ? `${fmtA(sp - lim, cur)} ${t.over}` : `${fmtA(lim - sp, cur)} ${t.left}`)));
+    }), eCat && /* @__PURE__ */ React.createElement("div", { className: "cd", style: { marginBottom: 10, border: "2px solid var(--acc)" } }, /* @__PURE__ */ React.createElement("div", { className: "fl" }, t.setBudget, ": ", EC.find((c) => c.id === eCat)?.i), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement("input", { className: "fi", type: "number", inputMode: "decimal", placeholder: "0", value: bAmt, onChange: (e) => setBAmt(e.target.value), style: { flex: 1 } }), /* @__PURE__ */ React.createElement("button", { className: "btn", style: { width: "auto", padding: "10px 20px" }, onClick: () => {
+      if (bAmt) {
+        onBud({ ...budgets, [eCat]: parseFloat(bAmt) });
+        setECat(null);
+        setBAmt("");
+      }
+    } }, t.save)))), sec === "goals" && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 14, fontWeight: 700 } }, t.goals), /* @__PURE__ */ React.createElement("button", { style: { background: "none", border: "none", color: "var(--acc)", fontSize: 13, fontWeight: 600, cursor: "pointer" }, onClick: () => setShowG(true) }, "+ ", t.addGoal)), goals.length === 0 ? /* @__PURE__ */ React.createElement("div", { className: "cd", style: { textAlign: "center", padding: 30 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 36, marginBottom: 8 } }, "\u{1F3AF}"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 14, color: "var(--t2)" } }, ln === "ru" ? "\u0414\u043E\u0431\u0430\u0432\u044C\u0442\u0435 \u0446\u0435\u043B\u044C" : "Add a goal")) : goals.map((g) => {
+      const pct = g.target > 0 ? Math.min(g.saved / g.target * 100, 100) : 0;
+      const done = g.saved >= g.target;
+      return /* @__PURE__ */ React.createElement("div", { key: g.id, className: "cd", style: { marginBottom: 10, borderLeft: `4px solid ${g.color}` } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginBottom: 6 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 15, fontWeight: 600 } }, done ? "\u{1F389} " : "", g.name), /* @__PURE__ */ React.createElement("button", { style: { background: "none", border: "none", color: "var(--red)", fontSize: 11, cursor: "pointer" }, onClick: () => onGoals(goals.filter((x) => x.id !== g.id)) }, "\u2715")), /* @__PURE__ */ React.createElement("div", { className: "gbar", style: { marginBottom: 6 } }, /* @__PURE__ */ React.createElement("div", { className: "gfill", style: { width: `${pct}%`, background: done ? "var(--grn)" : g.color } })), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 12, color: "var(--t2)" } }, fmtA(g.saved, cur), " / ", fmtA(g.target, cur), " (", pct.toFixed(0), "%)"), !done && (aGId === g.id ? /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 4 } }, /* @__PURE__ */ React.createElement("input", { className: "fi", type: "number", inputMode: "decimal", placeholder: "0", value: aAmt, onChange: (e) => setAAmt(e.target.value), style: { width: 80, padding: "6px 8px", fontSize: 13 } }), /* @__PURE__ */ React.createElement("button", { style: { background: "var(--acc)", border: "none", color: "white", borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer" }, onClick: () => {
+        if (aAmt) {
+          onGoals(goals.map((x) => x.id === g.id ? { ...x, saved: x.saved + parseFloat(aAmt) } : x));
+          setAGId(null);
+          setAAmt("");
+        }
+      } }, "+")) : /* @__PURE__ */ React.createElement("button", { style: { background: "none", border: "none", color: "var(--acc)", fontSize: 12, fontWeight: 600, cursor: "pointer" }, onClick: () => setAGId(g.id) }, "+ ", t.addSaving))));
+    }), showG && /* @__PURE__ */ React.createElement("div", { className: "cd", style: { border: "2px solid var(--acc)" } }, /* @__PURE__ */ React.createElement("div", { className: "fl" }, t.addGoal), /* @__PURE__ */ React.createElement("input", { className: "fi", placeholder: t.goalPh, value: gN, onChange: (e) => setGN(e.target.value), style: { marginBottom: 8 } }), /* @__PURE__ */ React.createElement("div", { className: "fl" }, t.target, " (", csym(cur), ")"), /* @__PURE__ */ React.createElement("input", { className: "fi", type: "number", inputMode: "decimal", placeholder: "0", value: gT, onChange: (e) => setGT(e.target.value), style: { marginBottom: 10 } }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: () => {
+      if (gN.trim() && gT) {
+        onGoals([...goals, { id: uid(), name: gN.trim(), target: parseFloat(gT), saved: 0, color: CC[goals.length % CC.length] }]);
+        setGN("");
+        setGT("");
+        setShowG(false);
+      }
+    }, style: { flex: 1 } }, t.save), /* @__PURE__ */ React.createElement("button", { className: "btn", style: { flex: 0, background: "var(--bg2)", color: "var(--t2)", width: "auto", padding: "12px 20px" }, onClick: () => setShowG(false) }, "\u2715"))))));
+  }
+  function Sett({ st, onUp, txs, subs, t, ln, onTheme }) {
+    const [ss, setSs] = useState(null);
+    const doSync = async () => {
+      if (!st.webhookUrl) return;
+      setSs("syncing");
+      try {
+        await fetch(st.webhookUrl, { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify({ action: "sync", transactions: txs, subscriptions: subs }) });
+        setSs("ok");
+        onUp({ ...st, lastSync: (/* @__PURE__ */ new Date()).toISOString() });
+        setTimeout(() => setSs(null), 3e3);
+      } catch {
+        setSs("err");
+        setTimeout(() => setSs(null), 4e3);
+      }
+    };
+    return /* @__PURE__ */ React.createElement("div", { className: "scr" }, /* @__PURE__ */ React.createElement("div", { style: { padding: "16px 20px 0" } }, /* @__PURE__ */ React.createElement("h1", { style: { fontSize: "var(--hdsz)", fontWeight: "var(--hdw)", letterSpacing: -0.8, marginBottom: 16 } }, t.settings), /* @__PURE__ */ React.createElement("div", { className: "cd", style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 12 } }, /* @__PURE__ */ React.createElement(Ic.Cloud, null), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 15, fontWeight: 600 } }, t.sheets), st.webhookUrl ? /* @__PURE__ */ React.createElement("span", { className: "bdg bg" }, /* @__PURE__ */ React.createElement(Ic.Check, null), t.connected) : /* @__PURE__ */ React.createElement("span", { className: "bdg by" }, t.notConn)), /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 10 } }, /* @__PURE__ */ React.createElement("div", { className: "fl" }, t.sheetUrl), /* @__PURE__ */ React.createElement("input", { className: "fi", placeholder: "https://docs.google.com/...", value: st.sheetUrl || "", onChange: (e) => onUp({ ...st, sheetUrl: e.target.value }) })), /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 12 } }, /* @__PURE__ */ React.createElement("div", { className: "fl" }, t.webhookUrl), /* @__PURE__ */ React.createElement("input", { className: "fi", placeholder: "https://script.google.com/...", value: st.webhookUrl || "", onChange: (e) => onUp({ ...st, webhookUrl: e.target.value }) })), /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: doSync, disabled: !st.webhookUrl || ss === "syncing", style: { fontSize: 14, padding: 12 } }, ss === "syncing" ? t.syncing : ss === "ok" ? "\u2713 " + t.synced : ss === "err" ? t.syncErr : t.sync)), /* @__PURE__ */ React.createElement("div", { className: "cd", style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", { className: "strow" }, /* @__PURE__ */ React.createElement("span", null, t.currency), /* @__PURE__ */ React.createElement("select", { className: "fi", style: { width: "auto", padding: "6px 28px 6px 10px", fontSize: 14 }, value: st.currency, onChange: (e) => onUp({ ...st, currency: e.target.value }) }, CUR.map((c) => /* @__PURE__ */ React.createElement("option", { key: c.c, value: c.c }, c.s, " ", c.c)))), /* @__PURE__ */ React.createElement("div", { className: "strow" }, /* @__PURE__ */ React.createElement("span", null, t.lang), /* @__PURE__ */ React.createElement("select", { className: "fi", style: { width: "auto", padding: "6px 28px 6px 10px", fontSize: 14 }, value: st.language || "en", onChange: (e) => onUp({ ...st, language: e.target.value }) }, /* @__PURE__ */ React.createElement("option", { value: "en" }, "English"), /* @__PURE__ */ React.createElement("option", { value: "ru" }, "\u0420\u0443\u0441\u0441\u043A\u0438\u0439"))), /* @__PURE__ */ React.createElement("div", { className: "strow" }, /* @__PURE__ */ React.createElement("span", null, "\u{1F3A8} ", t.design), /* @__PURE__ */ React.createElement("button", { style: { background: "none", border: "none", color: "var(--acc)", fontSize: 14, fontWeight: 500, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }, onClick: onTheme }, THEMES.find((x) => x.id === st.theme)?.emoji, " ", ln === "ru" ? THEMES.find((x) => x.id === st.theme)?.ru : THEMES.find((x) => x.id === st.theme)?.name, " ", /* @__PURE__ */ React.createElement(Ic.Chev, null))), /* @__PURE__ */ React.createElement("div", { className: "strow" }, /* @__PURE__ */ React.createElement("span", null, t.mode), /* @__PURE__ */ React.createElement("div", { className: "pill", style: { width: "auto", minWidth: 120 } }, /* @__PURE__ */ React.createElement("button", { className: `po ${st.mode === "lite" ? "a" : ""}`, onClick: () => onUp({ ...st, mode: "lite" }), style: { padding: "6px 12px", fontSize: 12 } }, "\u2600\uFE0F Lite"), /* @__PURE__ */ React.createElement("button", { className: `po ${st.mode === "pro" ? "a" : ""}`, onClick: () => onUp({ ...st, mode: "pro" }), style: { padding: "6px 12px", fontSize: 12 } }, "\u26A1 Pro")))), /* @__PURE__ */ React.createElement("div", { className: "cd", style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", { className: "strow", style: { borderBottom: "none" } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--red)" } }, t.clear), /* @__PURE__ */ React.createElement("button", { style: { background: "none", border: "none", color: "var(--red)", cursor: "pointer" }, onClick: () => {
+      if (confirm(t.clearQ)) {
+        LS.s("oyf5_tx", []);
+        LS.s("oyf5_sub", []);
+        LS.s("oyf5_st", null);
+        LS.s("oyf5_bud", {});
+        LS.s("oyf5_goals", []);
+        location.reload();
+      }
+    } }, /* @__PURE__ */ React.createElement(Ic.Trash, null))), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--t3)", textAlign: "center" } }, "Own Your Finance v5.0"))));
+  }
+  function ThemeSheet({ open, onClose, st, onUp, ln }) {
+    const [p, setP] = useState(() => {
+      const i = THEMES.findIndex((x) => x.id === st.theme);
+      return i >= 0 ? i / (THEMES.length - 1) : 0;
+    });
+    const cur = THEMES[Math.round(p * (THEMES.length - 1))];
+    useEffect(() => {
+      if (open) {
+        const { vars } = interp(p);
+        applyV(vars);
+      }
+    }, [p, open]);
+    return /* @__PURE__ */ React.createElement(Sheet, { open, onClose: () => {
+      applyV(THEMES.find((x) => x.id === st.theme)?.vars || THEMES[0].vars);
+      onClose();
+    }, title: ln === "ru" ? "\u0414\u0438\u0437\u0430\u0439\u043D" : "Design", right: /* @__PURE__ */ React.createElement("button", { style: { background: "none", border: "none", color: "var(--acc)", fontSize: 15, fontWeight: 600, cursor: "pointer" }, onClick: () => {
+      onUp({ ...st, theme: cur.id });
+      onClose();
+    } }, ln === "ru" ? "\u0413\u043E\u0442\u043E\u0432\u043E" : "Done") }, /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 36, marginBottom: 4 } }, cur.emoji), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, ln === "ru" ? cur.ru : cur.name), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--t2)" } }, ln === "ru" ? cur.dru : cur.desc)), /* @__PURE__ */ React.createElement("div", { className: "tst" }, /* @__PURE__ */ React.createElement("div", { className: "tdo" }, THEMES.map((x) => /* @__PURE__ */ React.createElement("div", { key: x.id, className: `td ${cur.id === x.id ? "ac" : ""}` }))), /* @__PURE__ */ React.createElement("input", { className: "tsi", type: "range", min: "0", max: "1000", value: Math.round(p * 1e3), onChange: (e) => setP(parseInt(e.target.value) / 1e3) })), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 8 } }, THEMES.map((x, i) => /* @__PURE__ */ React.createElement("div", { key: x.id, onClick: () => setP(i / (THEMES.length - 1)), style: { textAlign: "center", padding: 8, borderRadius: 10, background: cur.id === x.id ? "var(--accB)" : "var(--bg2)", cursor: "pointer", transition: "all .2s" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 20 } }, x.emoji), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, fontWeight: 600, color: cur.id === x.id ? "var(--acc)" : "var(--t3)", marginTop: 2 } }, ln === "ru" ? x.ru : x.name)))));
+  }
+  function Onboarding({ onComplete }) {
+    const [step, setStep] = useState(0);
+    const [mode, setMode] = useState("lite");
+    const [tp, setTp] = useState(0);
+    const [cur, setCur] = useState("EUR");
+    const [ln, setLn] = useState("en");
+    const t = T[ln];
+    const ct = THEMES[Math.round(tp * (THEMES.length - 1))];
+    useEffect(() => {
+      const { vars } = interp(tp);
+      applyV(vars);
+    }, [tp]);
+    return /* @__PURE__ */ React.createElement("div", { style: { position: "fixed", inset: 0, zIndex: 999, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "var(--bg)", transition: "background .5s", overflow: "auto" } }, /* @__PURE__ */ React.createElement(ThemeBg, { id: ct.bg }), /* @__PURE__ */ React.createElement("div", { style: { width: "100%", maxWidth: 400, padding: "0 24px", position: "relative", zIndex: 1 } }, step === 0 && /* @__PURE__ */ React.createElement("div", { className: "an", style: { textAlign: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 48, marginBottom: 8 } }, "\u{1F4B0}"), /* @__PURE__ */ React.createElement("h1", { style: { fontSize: 28, fontWeight: 800, letterSpacing: -0.8, marginBottom: 4 } }, "Own Your Finance"), /* @__PURE__ */ React.createElement("p", { style: { fontSize: 13, color: "var(--t2)", marginBottom: 10 } }, t.chooseModeH), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 12, justifyContent: "center" } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setLn("en"), style: { padding: "6px 14px", background: ln === "en" ? "var(--card)" : "var(--bg2)", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, color: ln === "en" ? "var(--text)" : "var(--t2)", backdropFilter: "blur(var(--blur))" } }, "EN"), /* @__PURE__ */ React.createElement("button", { onClick: () => setLn("ru"), style: { padding: "6px 14px", background: ln === "ru" ? "var(--card)" : "var(--bg2)", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, color: ln === "ru" ? "var(--text)" : "var(--t2)", backdropFilter: "blur(var(--blur))" } }, "RU")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 12, marginBottom: 24 } }, /* @__PURE__ */ React.createElement("div", { onClick: () => setMode("lite"), style: { flex: 1, padding: 20, borderRadius: "var(--rad)", background: "var(--card)", border: mode === "lite" ? "2px solid var(--acc)" : "2px solid var(--brd)", cursor: "pointer", transition: "all .25s", textAlign: "center", backdropFilter: "blur(var(--blur))" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 32, marginBottom: 8 } }, "\u2600\uFE0F"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 17, fontWeight: 700, marginBottom: 4 } }, t.lite), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--t2)", lineHeight: 1.5 } }, t.liteH)), /* @__PURE__ */ React.createElement("div", { onClick: () => setMode("pro"), style: { flex: 1, padding: 20, borderRadius: "var(--rad)", background: "var(--card)", border: mode === "pro" ? "2px solid var(--acc)" : "2px solid var(--brd)", cursor: "pointer", transition: "all .25s", textAlign: "center", backdropFilter: "blur(var(--blur))" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 32, marginBottom: 8 } }, "\u26A1"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 17, fontWeight: 700, marginBottom: 4 } }, t.pro), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--t2)", lineHeight: 1.5 } }, t.proH))), /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: () => setStep(1) }, t.next)), step === 1 && /* @__PURE__ */ React.createElement("div", { className: "an", style: { textAlign: "center" } }, /* @__PURE__ */ React.createElement("h2", { style: { fontSize: 24, fontWeight: 800, marginBottom: 4 } }, t.chooseDesign), /* @__PURE__ */ React.createElement("p", { style: { fontSize: 13, color: "var(--t2)", marginBottom: 14 } }, t.chooseDesignH), /* @__PURE__ */ React.createElement("div", { style: { borderRadius: "var(--rad)", padding: 16, background: "var(--card)", border: "1px solid var(--cbrd)", backdropFilter: "blur(var(--blur))", marginBottom: 14, transition: "all .3s" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { width: 36, height: 36, borderRadius: 10, background: "var(--accB)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 } }, "\u{1F355}"), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "left", flex: 1 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 14, fontWeight: 600 } }, "Food"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--t2)" } }, "Lunch")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 15, fontWeight: 700, color: "var(--red)" } }, "\u2212 \u20AC 12.50")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, padding: "8px", borderRadius: 8, background: "var(--grnB)", textAlign: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 16, fontWeight: 700, color: "var(--grn)" } }, "\u20AC 2,450")), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, padding: "8px", borderRadius: 8, background: "var(--redB)", textAlign: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 16, fontWeight: 700, color: "var(--red)" } }, "\u20AC 890")))), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 28, marginBottom: 2 } }, ct.emoji), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 16, fontWeight: 700 } }, ln === "ru" ? ct.ru : ct.name), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--t2)", marginBottom: 10 } }, ln === "ru" ? ct.dru : ct.desc), /* @__PURE__ */ React.createElement("div", { className: "tst" }, /* @__PURE__ */ React.createElement("div", { className: "tdo" }, THEMES.map((x) => /* @__PURE__ */ React.createElement("div", { key: x.id, className: `td ${ct.id === x.id ? "ac" : ""}` }))), /* @__PURE__ */ React.createElement("input", { className: "tsi", type: "range", min: "0", max: "1000", value: Math.round(tp * 1e3), onChange: (e) => setTp(parseInt(e.target.value) / 1e3) })), /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: () => setStep(2), style: { marginTop: 14 } }, t.next)), step === 2 && /* @__PURE__ */ React.createElement("div", { className: "an", style: { textAlign: "center" } }, /* @__PURE__ */ React.createElement("h2", { style: { fontSize: 24, fontWeight: 800, marginBottom: 4 } }, t.chooseCur), /* @__PURE__ */ React.createElement("p", { style: { fontSize: 13, color: "var(--t2)", marginBottom: 18 } }, t.chooseCurH), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginBottom: 24 } }, CUR.map((c) => /* @__PURE__ */ React.createElement("div", { key: c.c, onClick: () => setCur(c.c), style: { padding: "14px 8px", borderRadius: "var(--rads)", background: "var(--card)", border: cur === c.c ? "2px solid var(--acc)" : "2px solid var(--brd)", cursor: "pointer", transition: "all .2s", textAlign: "center", backdropFilter: "blur(var(--blur))" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 22, fontWeight: 700 } }, c.s), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--t2)" } }, c.c)))), /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: () => onComplete({ mode, theme: ct.id, currency: cur, language: ln }) }, t.start))));
+  }
+  window.OYFApp = function App() {
+    const [st, setSt] = useState(() => LS.g("oyf5_st"));
+    const [txs, setTxs] = useState(() => LS.g("oyf5_tx") || []);
+    const [subs, setSubs] = useState(() => LS.g("oyf5_sub") || []);
+    const [budgets, setBudgets] = useState(() => LS.g("oyf5_bud") || {});
+    const [goals, setGoals] = useState(() => LS.g("oyf5_goals") || []);
+    const [tab, setTab] = useState("dash");
+    const [showTx, setShowTx] = useState(false);
+    const [showSub, setShowSub] = useState(false);
+    const [editTx, setEditTx] = useState(null);
+    const [editSub, setEditSub] = useState(null);
+    const [showTheme, setShowTheme] = useState(false);
+    const thm = st ? THEMES.find((x) => x.id === st.theme) || THEMES[0] : THEMES[0];
+    useEffect(() => {
+      if (st?.theme) applyV(thm.vars);
+    }, [st?.theme]);
+    useEffect(() => {
+      LS.s("oyf5_tx", txs);
+    }, [txs]);
+    useEffect(() => {
+      LS.s("oyf5_sub", subs);
+    }, [subs]);
+    useEffect(() => {
+      if (st) LS.s("oyf5_st", st);
+    }, [st]);
+    useEffect(() => {
+      LS.s("oyf5_bud", budgets);
+    }, [budgets]);
+    useEffect(() => {
+      LS.s("oyf5_goals", goals);
+    }, [goals]);
+    if (!st) return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(CSS, null), /* @__PURE__ */ React.createElement(Onboarding, { onComplete: ({ mode, theme, currency, language }) => {
+      const s = { mode, theme, currency, language, sheetUrl: "", webhookUrl: "", lastSync: null };
+      setSt(s);
+      applyV(THEMES.find((x) => x.id === theme)?.vars || THEMES[0].vars);
+    } }));
+    const ln = st.language || "en";
+    const t = T[ln] || T.en;
+    const cur = st.currency || "EUR";
+    const isPro = st.mode === "pro";
+    const saveTx = (tx) => {
+      if (tx === null && editTx) {
+        setTxs((p) => p.filter((x) => x.id !== editTx.id));
+        setEditTx(null);
+        return;
+      }
+      setTxs((p) => {
+        const i = p.findIndex((x) => x.id === tx.id);
+        if (i >= 0) {
+          const n = [...p];
+          n[i] = tx;
+          return n;
+        }
+        return [tx, ...p];
+      });
+      setEditTx(null);
+    };
+    const saveSub = (s) => {
+      if (s === null && editSub) {
+        setSubs((p) => p.filter((x) => x.id !== editSub.id));
+        setEditSub(null);
+        return;
+      }
+      setSubs((p) => {
+        const i = p.findIndex((x) => x.id === s.id);
+        if (i >= 0) {
+          const n = [...p];
+          n[i] = s;
+          return n;
+        }
+        return [s, ...p];
+      });
+      setEditSub(null);
+    };
+    const toggleSub = (id) => setSubs((p) => p.map((s) => s.id === id ? { ...s, active: !s.active } : s));
+    return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(CSS, null), /* @__PURE__ */ React.createElement("div", { className: `app ${thm.uiClass}` }, /* @__PURE__ */ React.createElement(ThemeBg, { id: thm.bg }), tab === "dash" && /* @__PURE__ */ React.createElement(Dash, { txs, subs, cur, mode: st.mode, t, ln, onNav: setTab }), tab === "tx" && /* @__PURE__ */ React.createElement(TxView, { txs, cur, onEdit: (tx) => {
+      setEditTx(tx);
+      setShowTx(true);
+    }, t, ln }), tab === "sub" && /* @__PURE__ */ React.createElement(SubsView, { subs, cur, onEdit: (s) => {
+      setEditSub(s);
+      setShowSub(true);
+    }, onToggle: toggleSub, t, ln }), tab === "analytics" && isPro && /* @__PURE__ */ React.createElement(Analytics, { txs, cur, t, ln, budgets, goals, onBud: setBudgets, onGoals: setGoals }), tab === "set" && /* @__PURE__ */ React.createElement(Sett, { st, onUp: setSt, txs, subs, t, ln, onTheme: () => setShowTheme(true) }), /* @__PURE__ */ React.createElement("nav", { className: "tb" }, /* @__PURE__ */ React.createElement("button", { className: `ti ${tab === "dash" ? "a" : ""}`, onClick: () => setTab("dash") }, /* @__PURE__ */ React.createElement(Ic.Home, null), /* @__PURE__ */ React.createElement("span", null, t.dashboard)), /* @__PURE__ */ React.createElement("button", { className: `ti ${tab === "tx" ? "a" : ""}`, onClick: () => setTab("tx") }, /* @__PURE__ */ React.createElement(Ic.List, null), /* @__PURE__ */ React.createElement("span", null, t.transactions)), /* @__PURE__ */ React.createElement("button", { className: "fab", onClick: () => {
+      if (tab === "sub") {
+        setEditSub(null);
+        setShowSub(true);
+      } else {
+        setEditTx(null);
+        setShowTx(true);
+      }
+    } }, /* @__PURE__ */ React.createElement(Ic.Plus, null)), isPro ? /* @__PURE__ */ React.createElement("button", { className: `ti ${tab === "analytics" ? "a" : ""}`, onClick: () => setTab("analytics") }, /* @__PURE__ */ React.createElement(Ic.Chart, null), /* @__PURE__ */ React.createElement("span", null, t.analytics)) : /* @__PURE__ */ React.createElement("button", { className: `ti ${tab === "sub" ? "a" : ""}`, onClick: () => setTab("sub") }, /* @__PURE__ */ React.createElement(Ic.Rep, null), /* @__PURE__ */ React.createElement("span", null, t.subscriptions)), /* @__PURE__ */ React.createElement("button", { className: `ti ${tab === "set" ? "a" : ""}`, onClick: () => setTab("set") }, /* @__PURE__ */ React.createElement(Ic.Gear, null), /* @__PURE__ */ React.createElement("span", null, t.more))), /* @__PURE__ */ React.createElement(AddTxSheet, { open: showTx, onClose: () => {
+      setShowTx(false);
+      setEditTx(null);
+    }, onSave: saveTx, edit: editTx, cur, t, ln, isPro }), /* @__PURE__ */ React.createElement(AddSubSheet, { open: showSub, onClose: () => {
+      setShowSub(false);
+      setEditSub(null);
+    }, onSave: saveSub, edit: editSub, cur, t, ln }), /* @__PURE__ */ React.createElement(ThemeSheet, { open: showTheme, onClose: () => setShowTheme(false), st, onUp: setSt, ln })));
+  };
+})();
+
+// Render app
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(window.OYFApp));
+</script>
+<script>if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(function(){});</script>
+</body>
+</html>
